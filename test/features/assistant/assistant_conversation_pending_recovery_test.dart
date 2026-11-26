@@ -2076,6 +2076,48 @@ void main() {
   );
 
   testWidgets(
+    'N9: a timed re-collect keeps the still-answering line and does not move the list',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      await storeEarlierRunRequest(backend, ConversationSurface.si);
+      final paid = <Map<String, dynamic>>[];
+      final never = Completer<_Response>();
+      final container = _setup((body) async {
+        if (body['quoteOnly'] == true) return _quote(body);
+        paid.add(body);
+        if (paid.length == 1) return stillReserved(body);
+        return never.future;
+      }, backend);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pumpScreen(tester, container, ConversationSurface.si);
+      await pumpSome(tester);
+      expect(find.text(stillOnItsWay), findsOneWidget);
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
+      expect(position.maxScrollExtent, greaterThan(0));
+      position.jumpTo(0);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 5));
+      await pumpSome(tester);
+      expect(paid, hasLength(2), reason: 'The re-collect is in flight');
+      expect(position.pixels, 0);
+      await tester.scrollUntilVisible(
+        find.text(stillOnItsWay),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text(stillOnItsWay), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'N1: Clear conversation while a re-collect starts leaves Chat usable and never says nothing was charged',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(412, 915));

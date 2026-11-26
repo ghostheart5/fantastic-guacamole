@@ -516,15 +516,17 @@ class _AssistantConversationScreenState
     setState(() {
       _busy = true;
       _waitIndicatorDismissed = false;
-      _error = null;
+      // A timed re-collect keeps saying the reply is still being answered.
+      if (!recollect) _error = null;
       _outOfCredits = false;
       // The one-time line has done its job once a request starts.
       _scopeNoticeVisible = false;
     });
     // Keep the wait indicator and its Stop waiting button in view; the
-    // information row above the input leaves less room for the list.
+    // information row above the input leaves less room for the list. A timed
+    // re-collect leaves the list where the person put it.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _scroll.hasClients) {
+      if (mounted && _scroll.hasClients && !recollect) {
         _scroll.jumpTo(_scroll.position.maxScrollExtent);
       }
     });
