@@ -230,6 +230,82 @@ void main() {
     });
   });
 
+  group('when things get done: window', () {
+    test('looks back 28 days whatever the range and says so', () {
+      for (final int range in <int>[7, 30]) {
+        final WhenThingsGetDone v = run(range: range).whenDone.value;
+        expect(v.windowDays, 28);
+        expect(v.windowStart, DateTime(2026, 11, 4));
+      }
+    });
+
+    test('a task 27 days ago counts, 28 days ago does not', () {
+      List<TaskEntity> five(int oldest) => <TaskEntity>[
+        for (int i = 0; i < 4; i++) finished('n$i', at(i + 1)),
+        finished('old', at(oldest)),
+      ];
+      expect(run(tasks: five(27)).whenDone.value.finishedTasks, 5);
+      expect(run(tasks: five(28)).whenDone.value.finishedTasks, 4);
+    });
+
+    test('the Assistant answer looks back 14 days: the window differs on '
+        'purpose', () {
+      // The free one-tap answer reads what the read gateway gives it: 14 days
+      // back from the current time of day (si_v2_read_gateway.dart,
+      // _recentTaskEvidence). Patterns looks back 28 days so a weekday can
+      // reach 3. This fixture has 3 Mondays, one of them 15 days ago: the
+      // Assistant sees 2 and names no day, Patterns names Monday. The
+      // difference in window is intended; the counting rules are the same
+      // (tested above).
+      final List<TaskEntity> tasks = <TaskEntity>[
+        finished('m1', at(1)),
+        finished('m2', at(8)),
+        finished('m3', at(15)),
+        finished('tue', at(0, 8)),
+        finished('wed', at(6)),
+        finished('sat', at(3)),
+      ];
+      final DateTime gatewayStart = DateTime(
+        now.year,
+        now.month,
+        now.day - 14,
+        now.hour,
+        now.minute,
+      );
+      final SIV2EvidenceSnapshot snapshot = SIV2EvidenceSnapshot(
+        accountScopeId: 'account:test',
+        observedAt: now,
+        tasks: const <SIV2TaskEvidence>[],
+        goals: const <SIV2GoalEvidence>[],
+        milestones: const <SIV2MilestoneEvidence>[],
+        timeline: const <SIV2TimelineEvidence>[],
+        habits: const <SIV2HabitEvidence>[],
+        recentTasks: <SIV2RecentTaskEvidence>[
+          for (final TaskEntity t in tasks)
+            if (!t.completedAt!.isBefore(gatewayStart))
+              SIV2RecentTaskEvidence(
+                id: t.id,
+                title: t.title,
+                outcome: SIV2RecentTaskOutcome.completed,
+                at: t.completedAt!,
+              ),
+        ],
+      );
+      final String text = const SIOneTapEngine()
+          .answer(
+            question: SIOneTapQuestion.explainPatterns,
+            snapshot: snapshot,
+            now: now,
+            isSpanish: false,
+          )
+          .response
+          .toPlainText();
+      expect(snapshot.recentTasks, hasLength(5));
+      expect(text.contains('on a Monday'), isFalse);
+      expect(run(tasks: tasks).whenDone.value.weekday, DateTime.monday);
+    });
+  });
+
   group('habits', () {
     test('a daily habit checked in every day reads 7 of 7 with streaks', () {
       final HabitEntity walk = daily();
@@ -375,10 +451,10 @@ void main() {
       expect(days, hasLength(7));
       expect(days.first.day, DateTime(2026, 12, 1));
       expect(days[1].plannedMinutes, 60);
-      expect(days[1].isRough, isFalse);
+      expect(days[1].hasTasksWithoutEstimate, isFalse);
       expect(days[3].plannedMinutes, 25);
-      expect(days[3].estimatedByDefaultCount, 1);
-      expect(days[3].isRough, isTrue);
+      expect(days[3].withoutEstimateCount, 1);
+      expect(days[3].hasTasksWithoutEstimate, isTrue);
       // A whole-day deadline owns the day it names.
       expect(days[4].plannedMinutes, 10);
       expect(days[0].plannedMinutes, 0);
@@ -478,6 +554,267 @@ void main() {
       expect(gap.single.state, HabitPeriodState.missed);
       expect(gap.single.start, DateTime(2026, 11, 29));
     });
+  });
+
+  group('boundaries', () {
+    test('skipped tasks 6 days ago count for range 7, 7 days ago do not', () {
+      List<String> ids(int range, int daysAgo) => run(
+        tasks: <TaskEntity>[skipped('s', at(daysAgo))],
+        range: range,
+      ).missed.skippedTasks.value.map((r) => r.subjectId).toList();
+      expect(ids(7, 6), <String>['s']);
+      expect(ids(7, 7), isEmpty);
+      expect(ids(30, 29), <String>['s']);
+      expect(ids(30, 30), isEmpty);
+    });
+
+    test('range 30 trend covers 28 days: 27 days ago in, 28 days ago out', () {
+      final PatternsResult in27 = run(
+        tasks: <TaskEntity>[finished('a', at(27))],
+        range: 30,
+      );
+      final PatternsResult out28 = run(
+        tasks: <TaskEntity>[finished('a', at(28))],
+        range: 30,
+      );
+      expect(in27.trend.value.coveredDays, 28);
+      expect(in27.trend.value.tasksFinished, 1);
+      expect(out28.trend.value.tasksFinished, 0);
+      expect(run().trend.value.coveredDays, 7);
+    });
+
+    test('workload covers 7 days: day 6 in, day 7 out', () {
+      TaskEntity due(int day) => TaskEntity(
+        id: 'd$day',
+        title: 'D$day',
+        createdAt: at(2),
+        scheduledFor: DateTime(2026, 12, 1 + day, 12),
+      );
+      int total(PatternsResult r) =>
+          r.workload.value.fold<int>(0, (s, d) => s + d.taskCount);
+      expect(total(run(tasks: <TaskEntity>[due(6)])), 1);
+      expect(total(run(tasks: <TaskEntity>[due(7)])), 0);
+    });
+
+    test('canceled, skipped and finished tasks are not planned work', () {
+      final DateTime tomorrow = DateTime(2026, 12, 2, 9);
+      final PatternsResult r = run(
+        tasks: <TaskEntity>[
+          TaskEntity(
+            id: 'c',
+            title: 'C',
+            createdAt: at(2),
+            scheduledFor: tomorrow,
+            isCanceled: true,
+          ),
+          TaskEntity(
+            id: 's',
+            title: 'S',
+            createdAt: at(2),
+            scheduledFor: tomorrow,
+            isSkipped: true,
+            skippedAt: at(1),
+          ),
+          TaskEntity(
+            id: 'f',
+            title: 'F',
+            createdAt: at(2),
+            scheduledFor: tomorrow,
+            isCompleted: true,
+            completedAt: at(1),
+          ),
+        ],
+      );
+      expect(r.workload.value.fold<int>(0, (s, d) => s + d.taskCount), 0);
+      expect(r.unplaced.value.taskCount, 0);
+    });
+
+    test('the schedule wins over the deadline while it is still ahead', () {
+      final PatternsResult r = run(
+        tasks: <TaskEntity>[
+          TaskEntity(
+            id: 'x',
+            title: 'X',
+            createdAt: at(2),
+            scheduledFor: DateTime(2026, 12, 2, 9),
+            dueDate: DateTime(2026, 12, 5, 17),
+          ),
+        ],
+      );
+      expect(r.workload.value[1].taskCount, 1);
+      expect(r.workload.value[4].taskCount, 0);
+    });
+
+    test('a whole-day deadline stored as UTC midnight keeps its day', () {
+      final PatternsResult r = run(
+        tasks: <TaskEntity>[
+          TaskEntity(
+            id: 'u',
+            title: 'U',
+            createdAt: at(2),
+            dueDate: DateTime.utc(2026, 12, 5),
+          ),
+        ],
+      );
+      expect(r.workload.value[4].taskCount, 1);
+    });
+  });
+
+  group('unplaced work', () {
+    test('slipped work falls back to its deadline; the rest is unplaced', () {
+      final PatternsResult r = run(
+        tasks: <TaskEntity>[
+          // Scheduled yesterday, due in 3 days: lands on the deadline day.
+          TaskEntity(
+            id: 'slipped',
+            title: 'Slipped',
+            createdAt: at(5),
+            scheduledFor: at(1, 14),
+            dueDate: DateTime(2026, 12, 4, 17),
+            estimatedDuration: const Duration(minutes: 40),
+          ),
+          // Scheduled yesterday, nothing else: unplaced.
+          TaskEntity(
+            id: 'slipped-alone',
+            title: 'Slipped alone',
+            createdAt: at(5),
+            scheduledFor: at(1, 14),
+            estimatedDuration: const Duration(minutes: 20),
+          ),
+          // No date at all: unplaced, no estimate saved (25 minutes).
+          TaskEntity(id: 'undated', title: 'Undated', createdAt: at(5)),
+          // Overdue: unplaced.
+          TaskEntity(
+            id: 'late',
+            title: 'Late',
+            createdAt: at(5),
+            dueDate: DateTime(2026, 11, 28, 12),
+            estimatedDuration: const Duration(minutes: 10),
+          ),
+          // Beyond 7 days: in no day and not unplaced.
+          TaskEntity(
+            id: 'later',
+            title: 'Later',
+            createdAt: at(5),
+            dueDate: DateTime(2026, 12, 20, 12),
+          ),
+        ],
+      );
+      expect(r.workload.value[3].plannedMinutes, 40);
+      expect(r.workload.value.fold<int>(0, (s, d) => s + d.taskCount), 1);
+      final UnplacedWork u = r.unplaced.value;
+      expect(u.taskCount, 3);
+      expect(u.plannedMinutes, 20 + 25 + 10);
+      expect(u.withoutEstimateCount, 1);
+      expect(r.unplaced.evidence.enough, isTrue);
+    });
+
+    test('nothing unplaced is not enough evidence of anything', () {
+      expect(run().unplaced.value.taskCount, 0);
+      expect(run().unplaced.evidence.enough, isFalse);
+    });
+  });
+
+  group('habit misses follow the range', () {
+    test('a weekly habit lists only weeks that overlap the range', () {
+      final HabitEntity weekly = HabitEntity(
+        id: 'w',
+        title: 'Plan',
+        createdAt: at(120),
+        cadence: HabitCadence.weekly,
+      );
+      List<DateTime> misses(int range) => run(
+        habits: <HabitEntity>[weekly],
+        range: range,
+      ).missed.habitPeriods.value.map((m) => m.start).toList();
+      // Dec 1 is a Tuesday: the week of Mon Nov 30 is open. Range 7 starts
+      // Nov 25, so only the week of Nov 23 (to Nov 30) overlaps.
+      expect(misses(7), <DateTime>[DateTime(2026, 11, 23)]);
+      // Range 30 starts Nov 2: weeks of Nov 23, 16, 9 and 2.
+      expect(misses(30), <DateTime>[
+        DateTime(2026, 11, 23),
+        DateTime(2026, 11, 16),
+        DateTime(2026, 11, 9),
+        DateTime(2026, 11, 2),
+      ]);
+      // The consistency figure keeps the wider window.
+      expect(
+        run(
+          habits: <HabitEntity>[weekly],
+        ).habits.value.single.consistency.windowPeriods,
+        4,
+      );
+    });
+
+    test('a monthly habit lists only months that overlap the range', () {
+      final HabitEntity monthly = HabitEntity(
+        id: 'm',
+        title: 'Review',
+        createdAt: DateTime(2026, 8, 1),
+        cadence: HabitCadence.monthly,
+      );
+      for (final int range in <int>[7, 30]) {
+        final List<HabitPeriodMiss> misses = run(
+          habits: <HabitEntity>[monthly],
+          range: range,
+        ).missed.habitPeriods.value;
+        expect(misses.map((m) => m.start), <DateTime>[DateTime(2026, 11, 1)]);
+      }
+    });
+  });
+
+  test('a streak after a gap: current and longest differ', () {
+    final HabitEntity walk = daily();
+    final HabitConsistency c = run(
+      habits: <HabitEntity>[walk],
+      occurrences: <HabitOccurrenceEntity>[
+        for (final int i in <int>[0, 1, 3, 4, 5, 6]) checkIn(walk, at(i, 8)),
+      ],
+    ).habits.value.single.consistency;
+    expect(c.currentStreak, 2);
+    expect(c.longestStreak, 4);
+  });
+
+  test('days across a clock change keep their own check-ins', () {
+    // Bites only in a time zone with clock changes (the US ones on
+    // 2026-03-08 and 2026-11-01, the EU ones on 03-29 and 10-25): in a zone
+    // without them it still passes but proves nothing. Times just either side
+    // of midnight and inside the short and long days must land on their own
+    // calendar day, which 24-hour arithmetic would get wrong.
+    for (final DateTime day in <DateTime>[
+      DateTime(2026, 3, 8),
+      DateTime(2026, 3, 29),
+      DateTime(2026, 10, 25),
+      DateTime(2026, 11, 1),
+    ]) {
+      final DateTime before = DateTime(
+        day.year,
+        day.month,
+        day.day - 1,
+        23,
+        30,
+      );
+      final DateTime early = DateTime(day.year, day.month, day.day, 0, 30);
+      final DateTime late = DateTime(day.year, day.month, day.day, 23, 30);
+      final DateTime after = DateTime(day.year, day.month, day.day + 1, 0, 30);
+      final DateTime clock = DateTime(day.year, day.month, day.day + 2, 10);
+      final CompletionTrend t = run(
+        tasks: <TaskEntity>[
+          finished('b', before),
+          finished('e', early),
+          finished('l', late),
+          finished('a', after),
+        ],
+        clock: clock,
+      ).trend.value;
+      expect(t.buckets, hasLength(7));
+      int on(DateTime d) => t.buckets
+          .firstWhere((b) => b.start == DateTime(d.year, d.month, d.day))
+          .tasksFinished;
+      expect(on(day), 2, reason: 'day $day');
+      expect(on(DateTime(day.year, day.month, day.day - 1)), 1);
+      expect(on(DateTime(day.year, day.month, day.day + 1)), 1);
+    }
   });
 
   test('an empty account is empty and not enough everywhere', () {

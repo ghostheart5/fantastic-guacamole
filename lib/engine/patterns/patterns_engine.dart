@@ -95,6 +95,7 @@ class CompletionTrend {
   const CompletionTrend({
     required this.buckets,
     required this.bucketDays,
+    required this.coveredDays,
     required this.tasksFinished,
     required this.habitCheckIns,
   });
@@ -105,7 +106,18 @@ class CompletionTrend {
 
   /// 1 for daily buckets, 7 for weekly ones.
   final int bucketDays;
+
+  /// The days the buckets cover together: 7, or 28 for the 30-day range (the
+  /// habit figures and skipped tasks of that range cover 30). The screen says
+  /// "last 4 weeks" for the trend when this is 28.
+  final int coveredDays;
+
+  /// Tasks finished in the buckets, by when they were marked done.
   final int tasksFinished;
+
+  /// Habit check-ins in the buckets, counted by when each was recorded, not by
+  /// the period it counts for (a check-in made late for a past period counts
+  /// on the day it was made).
   final int habitCheckIns;
 }
 
@@ -114,6 +126,8 @@ class CompletionTrend {
 class WhenThingsGetDone {
   const WhenThingsGetDone({
     required this.finishedTasks,
+    required this.windowStart,
+    required this.windowDays,
     this.weekday,
     this.weekdayCount = 0,
     this.partOfDay,
@@ -121,6 +135,14 @@ class WhenThingsGetDone {
   });
 
   final int finishedTasks;
+
+  /// The look-back used: [windowDays] calendar days ending today, starting at
+  /// local midnight [windowStart]. The same whatever range is selected (a
+  /// weekday cannot reach 3 finished tasks in 7 days), so the screen says
+  /// "last 4 weeks" for 28. The free one-tap answer looks back 14 days, so the
+  /// two can name different days on purpose.
+  final DateTime windowStart;
+  final int windowDays;
 
   /// ISO weekday, 1 = Monday ... 7 = Sunday.
   final int? weekday;
@@ -135,12 +157,18 @@ class WhenThingsGetDone {
 enum PartOfDay { night, morning, afternoon, evening }
 
 /// Planned work on one day.
+///
+/// Every workload figure rests on task estimates: an estimate the person chose
+/// cannot be told from the app's default (the Creator form always saves 30, a
+/// restored task without one reads as 30), so the screen should say "based on
+/// your estimates" for all of it. The one thing known is which tasks have no
+/// estimate saved at all ([withoutEstimateCount]); those count 25 minutes.
 class WorkloadDay {
   const WorkloadDay({
     required this.day,
     required this.plannedMinutes,
     required this.taskCount,
-    required this.estimatedByDefaultCount,
+    required this.withoutEstimateCount,
   });
 
   /// Local midnight of the day.
@@ -148,11 +176,25 @@ class WorkloadDay {
   final int plannedMinutes;
   final int taskCount;
 
-  /// How many of the tasks have no estimate of their own, so their minutes
-  /// are the app's default and the figure is rough.
-  final int estimatedByDefaultCount;
+  /// How many of the tasks have no estimate saved, so their minutes are the
+  /// app's fallback and the figure is rougher still.
+  final int withoutEstimateCount;
 
-  bool get isRough => estimatedByDefaultCount > 0;
+  bool get hasTasksWithoutEstimate => withoutEstimateCount > 0;
+}
+
+/// Open tasks that have no day among the next 7: no schedule or deadline, or
+/// the date has passed (slipped or overdue). Their minutes are in no day.
+class UnplacedWork {
+  const UnplacedWork({
+    required this.taskCount,
+    required this.plannedMinutes,
+    required this.withoutEstimateCount,
+  });
+
+  final int taskCount;
+  final int plannedMinutes;
+  final int withoutEstimateCount;
 }
 
 /// A habit period that was skipped on purpose or missed.
@@ -167,7 +209,8 @@ class HabitPeriodMiss {
   final String habitId;
   final String title;
 
-  /// A local day inside the period.
+  /// The real start of the period at local midnight: that day, its Monday or
+  /// the 1st.
   final DateTime start;
 
   /// [HabitPeriodState.missed] or [HabitPeriodState.skipped].
@@ -203,6 +246,7 @@ class PatternsResult {
     required this.trend,
     required this.whenDone,
     required this.workload,
+    required this.unplaced,
     required this.missed,
   });
 
@@ -224,6 +268,9 @@ class PatternsResult {
 
   /// The next 7 days, today first.
   final PatternMetric<List<WorkloadDay>> workload;
+
+  /// Open work with no day among those 7 (undated, slipped or overdue).
+  final PatternMetric<UnplacedWork> unplaced;
   final MissedItems missed;
 }
 
@@ -283,6 +330,10 @@ class PatternsEngine {
       days: rangeDays > 28 ? rangeDays : 28,
     );
     final DateTime rangeStart = oneTapAddDays(today, -(rangeDays - 1));
+    final DateTime whenDoneStart = oneTapAddDays(
+      today,
+      -(whenDoneLookBackDays - 1),
+    );
     final List<ActivityRecord> inRange = records
         .where((ActivityRecord r) => !r.at.toLocal().isBefore(rangeStart))
         .toList(growable: false);
@@ -293,6 +344,8 @@ class PatternsEngine {
       today,
       rangeDays,
     );
+
+    final workload = _workload(allTasks, today);
 
     return PatternsResult(
       now: today,
@@ -310,13 +363,13 @@ class PatternsEngine {
       trend: _trend(records, today, rangeDays),
       whenDone: _whenDone(
         records.where(
-          (ActivityRecord r) => !r.at.toLocal().isBefore(
-            oneTapAddDays(today, -(whenDoneLookBackDays - 1)),
-          ),
+          (ActivityRecord r) => !r.at.toLocal().isBefore(whenDoneStart),
         ),
+        whenDoneStart,
       ),
-      workload: _workload(allTasks, today),
-      missed: _missed(allTasks, habitPatterns, inRange, today),
+      workload: workload.days,
+      unplaced: workload.unplaced,
+      missed: _missed(allTasks, habitPatterns, inRange, today, rangeStart),
     );
   }
 
@@ -395,6 +448,7 @@ class PatternsEngine {
       value: CompletionTrend(
         buckets: List<TrendBucket>.unmodifiable(buckets),
         bucketDays: bucketDays,
+        coveredDays: count * bucketDays,
         tasksFinished: totalTasks,
         habitCheckIns: totalHabits,
       ),
@@ -409,6 +463,7 @@ class PatternsEngine {
 
   static PatternMetric<WhenThingsGetDone> _whenDone(
     Iterable<ActivityRecord> lookBack,
+    DateTime windowStart,
   ) {
     final List<ActivityRecord> done = lookBack
         .where(
@@ -418,7 +473,11 @@ class PatternsEngine {
         .toList(growable: false);
     if (done.length < minimumFinishedTasks) {
       return PatternMetric<WhenThingsGetDone>(
-        value: WhenThingsGetDone(finishedTasks: done.length),
+        value: WhenThingsGetDone(
+          finishedTasks: done.length,
+          windowStart: windowStart,
+          windowDays: whenDoneLookBackDays,
+        ),
         provenance: PatternProvenance.calculated,
         evidence: PatternEvidence.notEnough(
           reason: done.isEmpty
@@ -451,6 +510,8 @@ class PatternsEngine {
     return PatternMetric<WhenThingsGetDone>(
       value: WhenThingsGetDone(
         finishedTasks: done.length,
+        windowStart: windowStart,
+        windowDays: whenDoneLookBackDays,
         weekday: dayStands ? days.first.key : null,
         weekdayCount: dayStands ? days.first.value : 0,
         partOfDay: partStands ? parts.first.key : null,
@@ -464,73 +525,112 @@ class PatternsEngine {
     );
   }
 
-  /// The local calendar day a task's work lands on: its schedule, else its
-  /// deadline. A whole-day deadline owns the day it names.
-  static DateTime? _workDay(TaskEntity task) {
-    final DateTime? scheduled = task.scheduledFor;
-    if (scheduled != null) {
-      final DateTime local = scheduled.toLocal();
-      return DateTime(local.year, local.month, local.day);
-    }
-    final DateTime? due = task.dueDate;
-    if (due == null) return null;
-    if (task.hasDateOnlyDeadline) return DateTime(due.year, due.month, due.day);
-    final DateTime local = due.toLocal();
+  static DateTime _day(DateTime value) {
+    final DateTime local = value.toLocal();
     return DateTime(local.year, local.month, local.day);
   }
 
-  static PatternMetric<List<WorkloadDay>> _workload(
-    List<TaskEntity> tasks,
-    DateTime today,
-  ) {
-    final DateTime first = DateTime(today.year, today.month, today.day);
+  /// The day a deadline names: a whole-day deadline owns the day it names.
+  static DateTime? _deadlineDay(TaskEntity task) {
+    final DateTime? due = task.dueDate;
+    if (due == null) return null;
+    return task.hasDateOnlyDeadline
+        ? DateTime(due.year, due.month, due.day)
+        : _day(due);
+  }
+
+  /// The day a task's work lands on: its schedule, and once that day has
+  /// passed (slipped work) its deadline. Null when there is none; a day before
+  /// [today] means the work is overdue.
+  static DateTime? _workDay(TaskEntity task, DateTime today) {
+    final DateTime? scheduled = task.scheduledFor == null
+        ? null
+        : _day(task.scheduledFor!);
+    if (scheduled != null && !scheduled.isBefore(today)) return scheduled;
+    return _deadlineDay(task);
+  }
+
+  static ({
+    PatternMetric<List<WorkloadDay>> days,
+    PatternMetric<UnplacedWork> unplaced,
+  })
+  _workload(List<TaskEntity> tasks, DateTime now) {
+    final DateTime first = DateTime(now.year, now.month, now.day);
     final List<DateTime> days = <DateTime>[
       for (int i = 0; i < workloadDays; i++) oneTapAddDays(first, i),
     ];
     final Map<DateTime, List<TaskEntity>> byDay = <DateTime, List<TaskEntity>>{
       for (final DateTime d in days) d: <TaskEntity>[],
     };
+    final List<TaskEntity> unplaced = <TaskEntity>[];
     for (final TaskEntity task in tasks) {
-      if (!task.isActionableAt(today)) continue;
-      final DateTime? day = _workDay(task);
-      if (day != null) byDay[day]?.add(task);
+      if (!task.isActionableAt(now)) continue;
+      final DateTime? day = _workDay(task, first);
+      if (day == null || day.isBefore(first)) {
+        unplaced.add(task);
+      } else {
+        byDay[day]?.add(task);
+      }
     }
+    int minutesOf(List<TaskEntity> list) => list.fold<int>(
+      0,
+      (int sum, TaskEntity t) => sum + t.estimateOrDefault.inMinutes,
+    );
+    int withoutEstimate(List<TaskEntity> list) =>
+        list.where((TaskEntity t) => !t.hasEstimate).length;
     int planned = 0;
     final List<WorkloadDay> out = <WorkloadDay>[
       for (final DateTime d in days)
         () {
           final List<TaskEntity> list = byDay[d]!;
-          final int minutes = list.fold<int>(
-            0,
-            (int sum, TaskEntity t) => sum + t.estimateOrDefault.inMinutes,
-          );
           planned += list.length;
           return WorkloadDay(
             day: d,
-            plannedMinutes: minutes,
+            plannedMinutes: minutesOf(list),
             taskCount: list.length,
-            estimatedByDefaultCount: list
-                .where((TaskEntity t) => !t.hasEstimate)
-                .length,
+            withoutEstimateCount: withoutEstimate(list),
           );
         }(),
     ];
-    return PatternMetric<List<WorkloadDay>>(
-      value: List<WorkloadDay>.unmodifiable(out),
-      provenance: PatternProvenance.calculated,
-      evidence: planned == 0
-          ? const PatternEvidence.notEnough(
-              reason: PatternEvidenceReason.noPlannedWork,
-            )
-          : PatternEvidence.enough(have: planned, need: 1),
+    return (
+      days: PatternMetric<List<WorkloadDay>>(
+        value: List<WorkloadDay>.unmodifiable(out),
+        provenance: PatternProvenance.calculated,
+        evidence: planned == 0
+            ? const PatternEvidence.notEnough(
+                reason: PatternEvidenceReason.noPlannedWork,
+              )
+            : PatternEvidence.enough(have: planned, need: 1),
+      ),
+      unplaced: PatternMetric<UnplacedWork>(
+        value: UnplacedWork(
+          taskCount: unplaced.length,
+          plannedMinutes: minutesOf(unplaced),
+          withoutEstimateCount: withoutEstimate(unplaced),
+        ),
+        provenance: PatternProvenance.calculated,
+        evidence: unplaced.isEmpty
+            ? const PatternEvidence.notEnough(
+                reason: PatternEvidenceReason.noRecords,
+              )
+            : PatternEvidence.enough(have: unplaced.length, need: 1),
+      ),
     );
   }
+
+  static DateTime _periodEnd(HabitCadence cadence, DateTime start) =>
+      switch (cadence) {
+        HabitCadence.daily => oneTapAddDays(start, 1),
+        HabitCadence.weekly => oneTapAddDays(start, 7),
+        HabitCadence.monthly => DateTime(start.year, start.month + 1, 1),
+      };
 
   static MissedItems _missed(
     List<TaskEntity> tasks,
     List<HabitPattern> habits,
     List<ActivityRecord> inRange,
     DateTime today,
+    DateTime rangeStart,
   ) {
     final List<ActivityRecord> skipped = inRange
         .where(
@@ -548,8 +648,11 @@ class PatternsEngine {
     for (final HabitPattern h in habits) {
       final HabitConsistency c = h.consistency;
       for (final HabitPeriod p in c.periods.take(c.windowPeriods)) {
-        if (p.state == HabitPeriodState.missed ||
-            p.state == HabitPeriodState.skipped) {
+        // Only periods that overlap the range: the wider window is for the
+        // consistency figure, not for this list.
+        if ((p.state == HabitPeriodState.missed ||
+                p.state == HabitPeriodState.skipped) &&
+            _periodEnd(c.cadence, p.start).isAfter(rangeStart)) {
           periods.add(
             HabitPeriodMiss(
               habitId: h.habitId,
@@ -562,31 +665,27 @@ class PatternsEngine {
       }
     }
     periods.sort((a, b) => b.start.compareTo(a.start));
-    final bool anyData = tasks.isNotEmpty || habits.isNotEmpty;
-    PatternEvidence evidence() => anyData
-        ? const PatternEvidence.enough()
-        : const PatternEvidence.notEnough(
-            reason: PatternEvidenceReason.noRecords,
-          );
+    // Evidence counts: how many saved tasks (or habits) were looked at. With
+    // none, an empty list says nothing; with some, an empty list is a result.
+    PatternEvidence evidence(int looked, PatternEvidenceReason reason) =>
+        looked > 0
+        ? PatternEvidence.enough(have: looked, need: 1)
+        : PatternEvidence.notEnough(reason: reason);
     return MissedItems(
       skippedTasks: PatternMetric<List<ActivityRecord>>(
         value: List<ActivityRecord>.unmodifiable(skipped),
         provenance: PatternProvenance.recorded,
-        evidence: evidence(),
+        evidence: evidence(tasks.length, PatternEvidenceReason.noRecords),
       ),
       overdueTasks: PatternMetric<List<TaskEntity>>(
         value: List<TaskEntity>.unmodifiable(overdue),
         provenance: PatternProvenance.calculated,
-        evidence: evidence(),
+        evidence: evidence(tasks.length, PatternEvidenceReason.noRecords),
       ),
       habitPeriods: PatternMetric<List<HabitPeriodMiss>>(
         value: List<HabitPeriodMiss>.unmodifiable(periods),
         provenance: PatternProvenance.calculated,
-        evidence: habits.isEmpty
-            ? const PatternEvidence.notEnough(
-                reason: PatternEvidenceReason.noHabits,
-              )
-            : const PatternEvidence.enough(),
+        evidence: evidence(habits.length, PatternEvidenceReason.noHabits),
       ),
     );
   }
