@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_calibration_adjustment.dart';
+import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -17,7 +18,117 @@ TrajectoryCalibrationSummary _summary(int resolved, double coverage) =>
 TrajectoryCalibrationAdjustment _rule(int resolved, double coverage) =>
     TrajectoryCalibrationAdjustment.fromSummary(_summary(resolved, coverage));
 
+final DateTime _selected = DateTime.utc(2026, 11, 1, 12);
+int _sequence = 0;
+
+/// A receipt projecting momentum 60 +/- 10. [observedMomentum] inside 50..70
+/// is covered by the interval.
+TrajectoryForecastReceipt _receipt({
+  String modelVersion = trajectoryConsequenceModelVersion,
+  int? observedMomentum,
+  bool corrected = false,
+}) {
+  final TrajectoryForecastReceipt receipt = TrajectoryForecastReceipt(
+    id: 'receipt-${_sequence++}',
+    accountScope: 'v2.test-account',
+    baselineRevision: 'trajectory-v4-test',
+    scenarioId: 'trajectory-v4-test:maintain-course',
+    interventionType: TrajectoryInterventionType.maintainCourse,
+    generatedAt: _selected,
+    selectedAt: _selected,
+    horizon: const Duration(days: 7),
+    projectedMomentum: 60,
+    projectedPressure: 20,
+    uncertainty: 10,
+    projectedRiskScore: 30,
+    confidenceBand: PredictiveConfidenceBand.moderate,
+    modelVersion: modelVersion,
+    assumptionsCorrectedAt: corrected
+        ? _selected.add(const Duration(days: 1))
+        : null,
+  );
+  if (observedMomentum == null) return receipt;
+  return receipt.resolve(
+    TrajectoryObservedOutcome(
+      observedAt: _selected.add(const Duration(days: 7)),
+      momentum: observedMomentum,
+      pressure: 20,
+      completedInWindow: 5,
+      deferredInWindow: 1,
+    ),
+  );
+}
+
 void main() {
+  group('TrajectoryCalibrationSummary counts like with like', () {
+    test('only checked, uncorrected current-version forecasts are used', () {
+      final TrajectoryCalibrationSummary summary =
+          TrajectoryCalibrationSummary.fromReceipts(<TrajectoryForecastReceipt>[
+            _receipt(observedMomentum: 60),
+            _receipt(observedMomentum: 90),
+            // Earlier method: kept, never used, whatever their accuracy.
+            _receipt(
+              modelVersion: 'trajectory-consequence-v3',
+              observedMomentum: 0,
+            ),
+            _receipt(
+              modelVersion: 'trajectory-consequence-v3',
+              observedMomentum: 0,
+            ),
+            _receipt(modelVersion: 'trajectory-consequence-v3'),
+            // Assumption-corrected: kept, never used.
+            _receipt(observedMomentum: 0, corrected: true),
+            // Not yet checked.
+            _receipt(),
+          ]);
+      expect(summary.resolvedForecasts, 2);
+      expect(summary.intervalCoverage, .5);
+      expect(summary.momentumMeanAbsoluteError, 15);
+      expect(summary.earlierMethodForecasts, 3);
+      expect(summary.correctedForecasts, 1);
+      expect(
+        TrajectoryCalibrationAdjustment.fromSummary(summary),
+        TrajectoryCalibrationAdjustment.provisional,
+      );
+    });
+
+    test('earlier-method forecasts do not dilute current coverage', () {
+      final TrajectoryCalibrationSummary summary =
+          TrajectoryCalibrationSummary.fromReceipts(<TrajectoryForecastReceipt>[
+            _receipt(observedMomentum: 60),
+            _receipt(observedMomentum: 65),
+            _receipt(observedMomentum: 0),
+            _receipt(observedMomentum: 100),
+            for (int i = 0; i < 6; i++)
+              _receipt(
+                modelVersion: 'trajectory-consequence-v3',
+                observedMomentum: 60,
+              ),
+          ]);
+      expect(summary.resolvedForecasts, 4);
+      expect(summary.intervalCoverage, .5);
+      expect(summary.earlierMethodForecasts, 6);
+      final TrajectoryCalibrationAdjustment rule =
+          TrajectoryCalibrationAdjustment.fromSummary(summary);
+      expect(rule.apply(20), 30);
+      expect(rule.state, PredictiveCalibrationState.monitored);
+    });
+
+    test('only earlier-method forecasts: nothing used, provisional', () {
+      final TrajectoryCalibrationSummary summary =
+          TrajectoryCalibrationSummary.fromReceipts(<TrajectoryForecastReceipt>[
+            for (int i = 0; i < 4; i++)
+              _receipt(
+                modelVersion: 'trajectory-consequence-v3',
+                observedMomentum: 60,
+              ),
+          ]);
+      expect(summary.resolvedForecasts, 0);
+      expect(summary.earlierMethodForecasts, 4);
+      expect(summary.state, PredictiveCalibrationState.provisional);
+    });
+  });
+
   group('TrajectoryCalibrationAdjustment', () {
     test('the bounds are the engine bounds, 8 to 42', () {
       expect(trajectoryUncertaintyMinimum, 8);

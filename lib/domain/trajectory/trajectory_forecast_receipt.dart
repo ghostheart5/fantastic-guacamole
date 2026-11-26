@@ -120,6 +120,10 @@ class TrajectoryForecastReceipt {
   DateTime get dueAt => selectedAt.add(horizon);
   bool get isResolved => observed != null;
   bool get hasAssumptionCorrection => assumptionsCorrectedAt != null;
+
+  /// Whether this forecast was made by [version] of the model, so its figures
+  /// mean the same as that version's.
+  bool isMethod(String version) => modelVersion == version;
   bool isDueAt(DateTime value) => !value.toUtc().isBefore(dueAt.toUtc());
 
   TrajectoryForecastReceipt resolve(TrajectoryObservedOutcome value) =>
@@ -297,24 +301,52 @@ class TrajectoryCalibrationSummary {
     required this.pressureMeanAbsoluteError,
     required this.intervalCoverage,
     required this.state,
+    this.earlierMethodForecasts = 0,
+    this.correctedForecasts = 0,
+    this.accountScope,
   });
 
+  /// Uses only checked, uncorrected forecasts of [modelVersion] (the current
+  /// model by default), so every error and coverage figure compares like with
+  /// like. Forecasts made by an earlier model version are kept in the ledger
+  /// and counted in [earlierMethodForecasts], never used; current-version
+  /// forecasts whose assumptions were corrected are counted in
+  /// [correctedForecasts], never used.
   factory TrajectoryCalibrationSummary.fromReceipts(
-    Iterable<TrajectoryForecastReceipt> receipts,
-  ) {
-    final List<TrajectoryForecastReceipt> resolved = receipts
+    Iterable<TrajectoryForecastReceipt> receipts, {
+    String modelVersion = trajectoryConsequenceModelVersion,
+  }) {
+    final List<TrajectoryForecastReceipt> all = receipts.toList(
+      growable: false,
+    );
+    final String? accountScope = all.isEmpty ? null : all.first.accountScope;
+    final int earlierMethod = all
+        .where((TrajectoryForecastReceipt item) => !item.isMethod(modelVersion))
+        .length;
+    final int corrected = all
         .where(
           (TrajectoryForecastReceipt item) =>
-              item.observed != null && !item.hasAssumptionCorrection,
+              item.isMethod(modelVersion) && item.hasAssumptionCorrection,
+        )
+        .length;
+    final List<TrajectoryForecastReceipt> resolved = all
+        .where(
+          (TrajectoryForecastReceipt item) =>
+              item.isMethod(modelVersion) &&
+              item.observed != null &&
+              !item.hasAssumptionCorrection,
         )
         .toList(growable: false);
     if (resolved.isEmpty) {
-      return const TrajectoryCalibrationSummary(
+      return TrajectoryCalibrationSummary(
         resolvedForecasts: 0,
         momentumMeanAbsoluteError: 0,
         pressureMeanAbsoluteError: 0,
         intervalCoverage: 0,
         state: PredictiveCalibrationState.provisional,
+        earlierMethodForecasts: earlierMethod,
+        correctedForecasts: corrected,
+        accountScope: accountScope,
       );
     }
     double momentumError = 0;
@@ -340,14 +372,29 @@ class TrajectoryCalibrationSummary {
       pressureMeanAbsoluteError: pressureError / resolved.length,
       intervalCoverage: covered / resolved.length,
       state: PredictiveCalibrationState.monitored,
+      earlierMethodForecasts: earlierMethod,
+      correctedForecasts: corrected,
+      accountScope: accountScope,
     );
   }
 
+  /// Checked, uncorrected forecasts of the current model version: the only
+  /// ones used.
   final int resolvedForecasts;
   final double momentumMeanAbsoluteError;
   final double pressureMeanAbsoluteError;
   final double intervalCoverage;
   final PredictiveCalibrationState state;
+
+  /// Forecasts made by an earlier model version: kept but not used.
+  final int earlierMethodForecasts;
+
+  /// Current-version forecasts whose assumptions were corrected: kept but
+  /// not used.
+  final int correctedForecasts;
+
+  /// The account whose ledger was summarised; null when it was empty.
+  final String? accountScope;
 }
 
 String _requiredString(Object? value, String field) {
