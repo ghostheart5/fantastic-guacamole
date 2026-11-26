@@ -50,10 +50,10 @@ These changes are not yet released or verified on a device.
 - Unused setup code is removed.
 - The assistant has one name and two modes: "On this device · free" and "AI chat". One switch at the top of Chat and Choose a step moves between them, and what you typed goes with you.
 - AI chat is off until you allow it. Before the first message it shows what will be sent, where it goes and what it costs, and a line above the message box lists what is included.
-- A paid AI request is saved before it is sent. If you leave, lose connection or sign in again, the same request is collected when you come back, without a second charge.
+- A paid AI request is saved before it is sent. If you leave, lose connection or sign in again, the same request is collected if you come back within a few minutes, without a second charge. After that the reply cannot be collected and the app says it may have used credits.
 - When a paid request fails, the message says "nothing was charged" only when that is known. Otherwise it says the request may have used credits and to check your balance.
 - Each AI reply shows what it cost and the balance left after it. The balance at the top of Chat shows only when it is known to be current.
-- Eight one-tap questions are answered on this device for free, on Today and in Chat: plan my day, what's coming up, what am I falling behind on, and five more. Each answer shows the facts it used and what is missing.
+- Eight one-tap questions are answered on this device for free in Chat, and three of them on Today: plan my day, what's coming up and what am I falling behind on. Each answer shows the facts it used and what is missing.
 - A task with a due date and no time counts as overdue only after that day ends.
 - Day counts in free answers stay right across a clock change.
 - AI chat can optionally include habits, recent results and goal progress. This is built but switched off in this release.
@@ -61,7 +61,7 @@ These changes are not yet released or verified on a device.
 - "Memory governance" in Settings is now "What Axiomara remembers", in plain words.
 - Plans and credits now says "AI chat credit plans".
 - The old assistant code that the app no longer used is removed.
-- Server changes are written and tested but not deployed yet: record text is kept out of the AI's instructions, the reply filter removes only the sentence at fault, refunded requests do not count toward the daily limit, and reply reports need a signed-in account and are blanked after 180 days.
+- Server changes are written and tested but not deployed yet: record text is kept out of the AI's instructions, the reply filter removes only the sentence at fault, refunded requests do not count toward the daily limit, and reply reports are blanked after 180 days.
 
 ## Future release entries
 
