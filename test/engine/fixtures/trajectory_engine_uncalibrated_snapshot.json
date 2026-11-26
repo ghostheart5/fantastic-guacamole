@@ -83,7 +83,7 @@
         "progression": {
           "potentialXp": 0,
           "streakProtected": true,
-          "summary": "No Activity reward is projected from this intervention alone."
+          "summary": "No progress reward is projected from this intervention alone."
         },
         "evidence": [
           "baseline_revision=trajectory-fixture-r1",
@@ -196,7 +196,7 @@
         "progression": {
           "potentialXp": 0,
           "streakProtected": false,
-          "summary": "No Activity reward is projected from this intervention alone."
+          "summary": "No progress reward is projected from this intervention alone."
         },
         "evidence": [
           "baseline_revision=trajectory-fixture-r1",
@@ -310,7 +310,7 @@
         "progression": {
           "potentialXp": 0,
           "streakProtected": false,
-          "summary": "No Activity reward is projected from this intervention alone."
+          "summary": "No progress reward is projected from this intervention alone."
         },
         "evidence": [
           "baseline_revision=trajectory-fixture-r1",
@@ -429,7 +429,7 @@
         "progression": {
           "potentialXp": 0,
           "streakProtected": true,
-          "summary": "No Activity reward is projected from this intervention alone."
+          "summary": "No progress reward is projected from this intervention alone."
         },
         "evidence": [
           "baseline_revision=trajectory-fixture-r1",
@@ -542,7 +542,7 @@
         "progression": {
           "potentialXp": 0,
           "streakProtected": false,
-          "summary": "No Activity reward is projected from this intervention alone."
+          "summary": "No progress reward is projected from this intervention alone."
         },
         "evidence": [
           "baseline_revision=trajectory-fixture-r1",
@@ -656,7 +656,7 @@
         "progression": {
           "potentialXp": 0,
           "streakProtected": false,
-          "summary": "No Activity reward is projected from this intervention alone."
+          "summary": "No progress reward is projected from this intervention alone."
         },
         "evidence": [
           "baseline_revision=trajectory-fixture-r1",
@@ -775,7 +775,7 @@
         "progression": {
           "potentialXp": 0,
           "streakProtected": true,
-          "summary": "No Activity reward is projected from this intervention alone."
+          "summary": "No progress reward is projected from this intervention alone."
         },
         "evidence": [
           "baseline_revision=trajectory-fixture-r1",
@@ -888,7 +888,7 @@
         "progression": {
           "potentialXp": 0,
           "streakProtected": false,
-          "summary": "No Activity reward is projected from this intervention alone."
+          "summary": "No progress reward is projected from this intervention alone."
         },
         "evidence": [
           "baseline_revision=trajectory-fixture-r1",
@@ -1002,7 +1002,7 @@
         "progression": {
           "potentialXp": 0,
           "streakProtected": false,
-          "summary": "No Activity reward is projected from this intervention alone."
+          "summary": "No progress reward is projected from this intervention alone."
         },
         "evidence": [
           "baseline_revision=trajectory-fixture-r1",
@@ -1121,7 +1121,7 @@
         "progression": {
           "potentialXp": 0,
           "streakProtected": true,
-          "summary": "No Activity reward is projected from this intervention alone."
+          "summary": "No progress reward is projected from this intervention alone."
         },
         "evidence": [
           "baseline_revision=trajectory-fixture-r1",
@@ -1234,7 +1234,7 @@
         "progression": {
           "potentialXp": 0,
           "streakProtected": false,
-          "summary": "No Activity reward is projected from this intervention alone."
+          "summary": "No progress reward is projected from this intervention alone."
         },
         "evidence": [
           "baseline_revision=trajectory-fixture-r1",
@@ -1348,7 +1348,7 @@
         "progression": {
           "potentialXp": 0,
           "streakProtected": false,
-          "summary": "No Activity reward is projected from this intervention alone."
+          "summary": "No progress reward is projected from this intervention alone."
         },
         "evidence": [
           "baseline_revision=trajectory-fixture-r1",
@@ -1467,7 +1467,7 @@
         "progression": {
           "potentialXp": 0,
           "streakProtected": true,
-          "summary": "No Activity reward is projected from this intervention alone."
+          "summary": "No progress reward is projected from this intervention alone."
         },
         "evidence": [
           "baseline_revision=trajectory-fixture-r1",
@@ -1580,7 +1580,7 @@
         "progression": {
           "potentialXp": 0,
           "streakProtected": false,
-          "summary": "No Activity reward is projected from this intervention alone."
+          "summary": "No progress reward is projected from this intervention alone."
         },
         "evidence": [
           "baseline_revision=trajectory-fixture-r1",
@@ -1694,7 +1694,7 @@
         "progression": {
           "potentialXp": 0,
           "streakProtected": false,
-          "summary": "No Activity reward is projected from this intervention alone."
+          "summary": "No progress reward is projected from this intervention alone."
         },
         "evidence": [
           "baseline_revision=trajectory-fixture-r1",

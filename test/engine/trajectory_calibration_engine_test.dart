@@ -121,6 +121,8 @@ void main() {
       // Generated from the engine at 8546e962, whose uncalibrated output was
       // checked against the pre-calibration engine (b8483192) by a pinned
       // hash of the same fields.
+      // Task 7 changed only one sentence in the fixture ("No Activity reward"
+      // became "No progress reward", the screen was renamed); no number moved.
       final Object? pinned = jsonDecode(
         File(
           'test/engine/fixtures/trajectory_engine_uncalibrated_snapshot.json',
