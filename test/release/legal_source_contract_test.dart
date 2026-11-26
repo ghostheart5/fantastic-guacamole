@@ -310,7 +310,7 @@ void main() {
     expect(productSite, contains('Reflection and planning'));
     expect(productSite, contains('Tools for your day'));
     expect(productSite, contains('Choose a step'));
-    expect(productSite, contains('SI Chat'));
+    expect(productSite, contains('Assistant'));
     expect(productSite, contains('Today'));
     expect(productSite, contains('publicly available'));
     expect(productSite, isNot(contains('Closed testing')));

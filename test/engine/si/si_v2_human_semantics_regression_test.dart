@@ -239,7 +239,10 @@ void main() {
 
         expect(response.directAnswer, contains('Llamar a la escuela'));
         expect(response.directAnswer, isNot(contains('cannot')));
-        expect(response.recommendation, contains('asistente no cambió ningún dato'));
+        expect(
+          response.recommendation,
+          contains('asistente no cambió ningún dato'),
+        );
         expect(
           response.observedFacts.map((statement) => statement.text).join(' '),
           isNot(contains('matched the selected information')),

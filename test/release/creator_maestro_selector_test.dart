@@ -670,92 +670,90 @@ void main() {
     },
   );
 
-  test(
-    'SI reveals clipped response sections without dropping response contracts',
-    () {
-      final flow = commands('.maestro/flows/06-si-console.yaml');
-      final verified = <String>[];
-      var phase = '';
-      String? revealed;
-      var completionObserved = false;
-      for (final command in flow.whereType<Map<dynamic, dynamic>>()) {
-        final input = command['inputText'];
-        if (input is String) {
-          phase = input;
-          revealed = null;
-          completionObserved = false;
-        }
-        final wait = command['extendedWaitUntil'];
-        if (wait is Map) {
-          final visible = wait['visible'] as String;
-          if (phase == 'What evidence is missing?') {
-            expect(
-              visible,
-              contains(
-                'Read-only response made on this device from the selected records.',
-              ),
-            );
-          } else if (phase == '/status') {
-            expect(visible, contains('ASSISTANT STATUS.*Read-only Chat:'));
-          } else if (phase == '/not-real preserve this') {
-            expect(
-              visible,
-              contains(
-                'Unknown shortcut.*No part of the request was sent or discarded.',
-              ),
-            );
-          } else if (phase == 'I want to kill myself') {
-            expect(visible, "Let's pause and focus on your safety");
-            verified.add('crisis');
-          }
-          completionObserved = true;
-        }
-        final scroll = command['scrollUntilVisible'];
-        if (scroll is Map) {
-          expect(
-            completionObserved,
-            isTrue,
-            reason: 'Wait for the current reply before revealing it.',
-          );
-          revealed = (scroll['element'] as Map)['text'] as String;
-          expect(scroll['visibilityPercentage'], 100);
-          expect(
-            scroll['direction'],
-            revealed.contains('Processing mode:') ? 'UP' : 'DOWN',
-          );
-        }
-        final assertion = command['assertVisible'];
-        if (assertion is String &&
-            (assertion.contains('Processing mode:') ||
-                ['DIRECT ANSWER', 'RECOMMENDATION'].contains(assertion))) {
-          // Replay the clipped viewport from the hosted failure: none of these
-          // required sections can be assumed visible after following the footer.
-          expect(
-            revealed,
-            assertion,
-            reason: 'Reveal the required $phase section before asserting it.',
-          );
-          verified.add('$phase|$assertion');
-          revealed = null;
-        }
+  test('SI reveals clipped response sections without dropping response contracts', () {
+    final flow = commands('.maestro/flows/06-si-console.yaml');
+    final verified = <String>[];
+    var phase = '';
+    String? revealed;
+    var completionObserved = false;
+    for (final command in flow.whereType<Map<dynamic, dynamic>>()) {
+      final input = command['inputText'];
+      if (input is String) {
+        phase = input;
+        revealed = null;
+        completionObserved = false;
       }
-      expect(verified, [
-        'What evidence is missing?|(?s).*Processing mode: On this device.*',
-        'What evidence is missing?|DIRECT ANSWER',
-        'What evidence is missing?|RECOMMENDATION',
-        '/status|(?s).*Processing mode: On this device.*',
-        '/not-real preserve this|(?s).*Processing mode: On this device .fallback..*',
-        'crisis',
-      ]);
-      expect(
-        entries(flow).where(
-          (entry) =>
-              entry.key == 'assertNotVisible' && entry.value == '(?s).*Processing mode: AI chat.*',
-        ),
-        hasLength(4),
-      );
-    },
-  );
+      final wait = command['extendedWaitUntil'];
+      if (wait is Map) {
+        final visible = wait['visible'] as String;
+        if (phase == 'What evidence is missing?') {
+          expect(
+            visible,
+            contains(
+              'Read-only response made on this device from the selected records.',
+            ),
+          );
+        } else if (phase == '/status') {
+          expect(visible, contains('ASSISTANT STATUS.*Read-only Chat:'));
+        } else if (phase == '/not-real preserve this') {
+          expect(
+            visible,
+            contains(
+              'Unknown shortcut.*No part of the request was sent or discarded.',
+            ),
+          );
+        } else if (phase == 'I want to kill myself') {
+          expect(visible, "Let's pause and focus on your safety");
+          verified.add('crisis');
+        }
+        completionObserved = true;
+      }
+      final scroll = command['scrollUntilVisible'];
+      if (scroll is Map) {
+        expect(
+          completionObserved,
+          isTrue,
+          reason: 'Wait for the current reply before revealing it.',
+        );
+        revealed = (scroll['element'] as Map)['text'] as String;
+        expect(scroll['visibilityPercentage'], 100);
+        expect(
+          scroll['direction'],
+          revealed.contains('Processing mode:') ? 'UP' : 'DOWN',
+        );
+      }
+      final assertion = command['assertVisible'];
+      if (assertion is String &&
+          (assertion.contains('Processing mode:') ||
+              ['DIRECT ANSWER', 'RECOMMENDATION'].contains(assertion))) {
+        // Replay the clipped viewport from the hosted failure: none of these
+        // required sections can be assumed visible after following the footer.
+        expect(
+          revealed,
+          assertion,
+          reason: 'Reveal the required $phase section before asserting it.',
+        );
+        verified.add('$phase|$assertion');
+        revealed = null;
+      }
+    }
+    expect(verified, [
+      'What evidence is missing?|(?s).*Processing mode: On this device.*',
+      'What evidence is missing?|DIRECT ANSWER',
+      'What evidence is missing?|RECOMMENDATION',
+      '/status|(?s).*Processing mode: On this device.*',
+      '/not-real preserve this|(?s).*Processing mode: On this device .fallback..*',
+      'crisis',
+    ]);
+    expect(
+      entries(flow).where(
+        (entry) =>
+            entry.key == 'assertNotVisible' &&
+            entry.value == '(?s).*Processing mode: AI chat.*',
+      ),
+      hasLength(4),
+    );
+  });
 
   for (final String path in <String>[
     '.maestro/flows/05-creator.yaml',
