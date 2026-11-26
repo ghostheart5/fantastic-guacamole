@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
@@ -195,6 +196,7 @@ TrajectoryEngineModel futureOutcomesModel({
   int days = 7,
   TrajectoryComparison? comparison,
   TrajectoryEngineStatus status = TrajectoryEngineStatus.ready,
+  DecisionIntelligence? decision,
 }) {
   final TrajectoryEngineModel fixture = trajectoryTestEngineModel();
   return TrajectoryEngineModel(
@@ -202,8 +204,82 @@ TrajectoryEngineModel futureOutcomesModel({
     summary: fixture.summary,
     momentum: fixture.momentum,
     comparison: comparison ?? futureOutcomesComparison(days: days),
+    decisionIntelligence: decision,
     statusDetail: fixture.statusDetail,
     hasAvailableNetworkInterface: true,
+  );
+}
+
+/// Today's planning summary as the operating-system provider builds it, with
+/// its own producer sentences. [firstSummary] gives the first one (no earlier
+/// snapshot), whose change line comes from the delta engine.
+DecisionIntelligence futureOutcomesDecision({bool firstSummary = false}) {
+  final DateTime now = trajectoryFixtureNow;
+  OperatingSnapshot snapshot({
+    required int momentum,
+    required int pressure,
+    required int overdue,
+    required int completed,
+  }) => OperatingSnapshot(
+    accountScope: 'v2.test-account',
+    observedAt: now,
+    sourceRevisions: <String, String>{'tasks': '$completed'},
+    activeGoalCount: 1,
+    actionableCount: 4,
+    overdueCount: overdue,
+    completedToday: completed,
+    energy: .64,
+    fatigue: .2,
+    momentum: momentum,
+    pressure: pressure,
+    topActionId: 'task-a',
+    topActionLabel: 'Draft the proposal',
+    activeRisks: const <String>['One overdue task'],
+    evidenceCoverage: .9,
+  );
+  final OperatingSnapshot current = snapshot(
+    momentum: 61,
+    pressure: 58,
+    overdue: 1,
+    completed: 2,
+  );
+  final OperatingSnapshot? previous = firstSummary
+      ? null
+      : snapshot(momentum: 52, pressure: 66, overdue: 2, completed: 1);
+  return DecisionIntelligence(
+    snapshot: current,
+    delta: const OperatingDeltaEngine().compare(
+      previous: previous,
+      current: current,
+      comparedAt: now,
+    ),
+    decision: OperatingDecisionReceipt(
+      subjectId: 'task-a',
+      recommendedAction: 'Draft the proposal',
+      rationale: 'Draft the proposal ranks first for its deadline and value.',
+      whyItMatters:
+          'It reduces current schedule risk and prevents overdue pressure from compounding.',
+      consequenceOfDelay:
+          'Waiting can increase rollover pressure and reduce schedule flexibility.',
+      generatedAt: now,
+      // Far ahead, so the action stays enabled whatever the test clock.
+      expiresAt: DateTime.utc(2100),
+      confidence: OperatingConfidence.moderate,
+      evidence: const <OperatingEvidence>[],
+      actionIntent: const OperatingActionIntent(
+        id: 'action-a',
+        type: OperatingActionType.openTimeline,
+        label: 'Review on Schedule',
+        destination: '/timeline',
+        targetEntityId: 'task-a',
+      ),
+      sourceRevisions: const <String, String>{'tasks': '2'},
+      modelVersion: 'operating-test-v1',
+      assumptions: const <String>[
+        'Deterministic ranking is decision support, not a guaranteed outcome.',
+      ],
+    ),
+    acknowledgedSnapshotId: null,
   );
 }
 
@@ -275,9 +351,14 @@ Future<ProviderContainer> pumpFutureOutcomes(
       overrides: [
         if (defaultModel)
           trajectoryEngineModelProvider.overrideWith(
-            (Ref ref) => (modelFor ?? (int d) => futureOutcomesModel(days: d))(
-              ref.watch(trajectoryHorizonDaysProvider),
-            ),
+            (Ref ref) =>
+                (modelFor ??
+                (int d) => futureOutcomesModel(
+                  days: d,
+                  // Today's planning summary is on by default, so every
+                  // screen test also reads it (its first-summary wording).
+                  decision: futureOutcomesDecision(firstSummary: true),
+                ))(ref.watch(trajectoryHorizonDaysProvider)),
           ),
         if (defaultHabits)
           trajectoryHabitLinesProvider.overrideWith(

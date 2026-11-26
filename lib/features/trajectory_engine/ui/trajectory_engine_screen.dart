@@ -25,7 +25,6 @@ import 'package:fantastic_guacamole/state/providers/trajectory_habit_provider.da
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
-import 'package:fantastic_guacamole/ui/widgets/decision_intelligence_card.dart';
 import 'package:fantastic_guacamole/ui/widgets/plain/plain.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -402,14 +401,8 @@ class _TrajectoryEngineScreenState
                 if (displayModel.decisionIntelligence
                     case final DecisionIntelligence intelligence) ...<Widget>[
                   const SizedBox(height: 12),
-                  DecisionIntelligenceCard(
+                  _PlanningSummary(
                     intelligence: intelligence,
-                    title: journeyText(
-                      context,
-                      'Decision context',
-                      'Contexto de la decisión',
-                    ),
-                    compact: true,
                     onAction: () =>
                         _openDecisionAction(intelligence.decision.actionIntent),
                   ),

@@ -299,6 +299,210 @@ class _BasedOnDetails extends StatelessWidget {
   }
 }
 
+/// Today's planning summary (the decision provider's snapshot), in plain
+/// rows. Its figures are today's, not the selected range's, and say so.
+class _PlanningSummary extends StatelessWidget {
+  const _PlanningSummary({required this.intelligence, required this.onAction});
+
+  final DecisionIntelligence intelligence;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final OperatingSnapshot snapshot = intelligence.snapshot;
+    final OperatingDecisionReceipt decision = intelligence.decision;
+    final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
+    final String today = journeyText(
+      context,
+      'Today, not the selected range.',
+      'Hoy, no el periodo elegido.',
+    );
+    final String confidence = switch (decision.confidence) {
+      OperatingConfidence.high => journeyText(context, 'high', 'alta'),
+      OperatingConfidence.moderate => journeyText(
+        context,
+        'moderate',
+        'moderada',
+      ),
+      OperatingConfidence.low => journeyText(context, 'low', 'baja'),
+      OperatingConfidence.insufficientEvidence => journeyText(
+        context,
+        'insufficient',
+        'insuficiente',
+      ),
+    };
+    return Column(
+      key: const Key('future-outcomes-planning-summary'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _cardHeading(
+          context,
+          journeyText(
+            context,
+            "Today's planning summary",
+            'Resumen de planificación de hoy',
+          ),
+        ),
+        Text(
+          journeyText(
+            context,
+            'From your records and plan today. Confidence: $confidence.',
+            'De tus registros y tu plan de hoy. Confianza: $confidence.',
+          ),
+          style: _secondaryText(context),
+        ),
+        PlainMetricRow(
+          label: journeyText(context, 'To do', 'Por hacer'),
+          value: '${snapshot.actionableCount}',
+          provenance: ProvenanceKind.recorded,
+        ),
+        PlainMetricRow(
+          label: journeyText(context, 'Overdue', 'Vencidas'),
+          value: '${snapshot.overdueCount}',
+          provenance: ProvenanceKind.recorded,
+        ),
+        PlainMetricRow(
+          label: journeyText(context, 'Finished today', 'Terminadas hoy'),
+          value: '${snapshot.completedToday}',
+          provenance: ProvenanceKind.recorded,
+        ),
+        PlainMetricRow(
+          label: journeyText(context, 'Workload today', 'Carga de trabajo hoy'),
+          value:
+              '${_workloadBand(context, snapshot.pressure)}, ${snapshot.pressure}%',
+          caption: today,
+          provenance: ProvenanceKind.estimate,
+        ),
+        PlainMetricRow(
+          label: journeyText(context, 'Pace today', 'Ritmo hoy'),
+          value: journeyText(
+            context,
+            '${_paceBand(context, snapshot.momentum)}, ${snapshot.momentum} of 100',
+            '${_paceBand(context, snapshot.momentum)}, ${snapshot.momentum} de 100',
+          ),
+          caption: today,
+          provenance: ProvenanceKind.estimate,
+        ),
+        _cardHeading(
+          context,
+          journeyText(context, 'What changed', 'Qué cambió'),
+        ),
+        Text(
+          _planningChanges(context, intelligence.delta, isSpanish),
+          style: _secondaryText(context),
+        ),
+        _cardHeading(
+          context,
+          journeyText(context, 'What matters next', 'Qué importa ahora'),
+        ),
+        Text(
+          decision.recommendedAction,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: PlainPalette.of(context).primary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        _cardHeading(context, journeyText(context, 'Why', 'Por qué')),
+        Text(
+          '${decision.rationale} ${decision.whyItMatters}',
+          style: _secondaryText(context),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: OutlinedButton(
+            onPressed: decision.isExpired ? null : onAction,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(
+                AppSizes.touchTarget,
+                AppSizes.touchTarget,
+              ),
+            ),
+            child: Text(_planningActionLabel(decision.actionIntent, isSpanish)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// What changed since the last summary, in the glossary's words.
+String _planningChanges(
+  BuildContext context,
+  OperatingDelta delta,
+  bool isSpanish,
+) {
+  if (delta.isBaseline) {
+    return journeyText(
+      context,
+      'This is the first summary; later ones show what changed.',
+      'Es el primer resumen; los siguientes muestran qué cambió.',
+    );
+  }
+  final List<OperatingChange> changes = delta.materialChanges;
+  if (changes.isEmpty) {
+    return delta.previousSnapshotId == delta.currentSnapshotId
+        ? journeyText(
+            context,
+            'No important changes since the last check.',
+            'No hubo cambios importantes desde la última revisión.',
+          )
+        : journeyText(
+            context,
+            'Your records changed, but nothing important for this choice.',
+            'Tus registros cambiaron, pero nada importante para esta elección.',
+          );
+  }
+  return changes
+      .take(3)
+      .map((OperatingChange item) {
+        final String label = switch (item.kind) {
+          OperatingChangeKind.priority => journeyText(
+            context,
+            'Top action',
+            'Acción principal',
+          ),
+          OperatingChangeKind.schedule => journeyText(
+            context,
+            'Overdue',
+            'Vencidas',
+          ),
+          OperatingChangeKind.momentum => journeyText(context, 'Pace', 'Ritmo'),
+          OperatingChangeKind.risk => journeyText(
+            context,
+            'Workload',
+            'Carga de trabajo',
+          ),
+          OperatingChangeKind.progression => journeyText(
+            context,
+            'Finished today',
+            'Terminadas hoy',
+          ),
+          OperatingChangeKind.evidence => journeyText(
+            context,
+            'Records available',
+            'Registros disponibles',
+          ),
+        };
+        return '$label: ${item.previousValue} ${isSpanish ? 'a' : 'to'} ${item.currentValue}';
+      })
+      .join('. ');
+}
+
+String _planningActionLabel(OperatingActionIntent intent, bool isSpanish) {
+  if (!isSpanish) return intent.label;
+  return switch (intent.type) {
+    OperatingActionType.openCreator => 'Añadir algo',
+    OperatingActionType.openSmartPlanner => 'Revisar en Elegir un paso',
+    OperatingActionType.openSiConsole => 'Revisar evidencia en Chat',
+    OperatingActionType.openTrajectoryEngine =>
+      'Revisar riesgo en Perspectivas',
+    OperatingActionType.openProgression => 'Revisar recuperación en Patrones',
+    OperatingActionType.openTimeline => 'Revisar en agenda',
+    _ => intent.label,
+  };
+}
+
 /// How often tasks like the next one were finished, from recorded outcomes.
 class _TaskPredictionDetails extends StatelessWidget {
   const _TaskPredictionDetails({required this.model});
