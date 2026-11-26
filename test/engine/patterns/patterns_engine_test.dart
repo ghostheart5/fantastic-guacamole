@@ -746,6 +746,51 @@ void main() {
       );
     });
 
+    test('a Monday keeps the oldest week that touches the range', () {
+      final HabitEntity weekly = HabitEntity(
+        id: 'w',
+        title: 'Plan',
+        createdAt: at(120),
+        cadence: HabitCadence.weekly,
+      );
+      // Monday 2026-11-30: range 30 starts Sunday Nov 1, which is in the week
+      // of Mon Oct 26 (that week ends Nov 2).
+      final List<DateTime> misses = run(
+        habits: <HabitEntity>[weekly],
+        range: 30,
+        clock: DateTime(2026, 11, 30, 10),
+      ).missed.habitPeriods.value.map((m) => m.start).toList();
+      expect(misses, <DateTime>[
+        DateTime(2026, 11, 23),
+        DateTime(2026, 11, 16),
+        DateTime(2026, 11, 9),
+        DateTime(2026, 11, 2),
+        DateTime(2026, 10, 26),
+      ]);
+    });
+
+    test('habits missing the same day come out in a stable order', () {
+      final HabitEntity b = HabitEntity(
+        id: 'b',
+        title: 'Beta',
+        createdAt: at(10),
+      );
+      final HabitEntity a = HabitEntity(
+        id: 'a',
+        title: 'Alpha',
+        createdAt: at(10),
+      );
+      for (final List<HabitEntity> order in <List<HabitEntity>>[
+        <HabitEntity>[b, a],
+        <HabitEntity>[a, b],
+      ]) {
+        final List<String> first = run(
+          habits: order,
+        ).missed.habitPeriods.value.take(2).map((m) => m.title).toList();
+        expect(first, <String>['Alpha', 'Beta']);
+      }
+    });
+
     test('a monthly habit lists only months that overlap the range', () {
       final HabitEntity monthly = HabitEntity(
         id: 'm',

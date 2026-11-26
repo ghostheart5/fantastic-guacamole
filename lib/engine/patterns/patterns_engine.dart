@@ -183,8 +183,9 @@ class WorkloadDay {
   bool get hasTasksWithoutEstimate => withoutEstimateCount > 0;
 }
 
-/// Open tasks that have no day among the next 7: no schedule or deadline, or
-/// the date has passed (slipped or overdue). Their minutes are in no day.
+/// Open tasks that have no day among the next 7: undated, slipped with no
+/// later deadline, or overdue. Their minutes are in no day. Work more than 7
+/// days ahead is left out of both on purpose.
 class UnplacedWork {
   const UnplacedWork({
     required this.taskCount,
@@ -209,8 +210,8 @@ class HabitPeriodMiss {
   final String habitId;
   final String title;
 
-  /// The real start of the period at local midnight: that day, its Monday or
-  /// the 1st.
+  /// The real start of the period at local midnight: that day (daily), its
+  /// Monday (weekly) or the 1st (monthly).
   final DateTime start;
 
   /// [HabitPeriodState.missed] or [HabitPeriodState.skipped].
@@ -647,8 +648,9 @@ class PatternsEngine {
     final List<HabitPeriodMiss> periods = <HabitPeriodMiss>[];
     for (final HabitPattern h in habits) {
       final HabitConsistency c = h.consistency;
-      for (final HabitPeriod p in c.periods.take(c.windowPeriods)) {
-        // Only periods that overlap the range: the wider window is for the
+      for (final HabitPeriod p in c.periods) {
+        // Every period that overlaps the range, however many that is (on a
+        // Monday a 30-day range touches 6 weeks): the window is for the
         // consistency figure, not for this list.
         if ((p.state == HabitPeriodState.missed ||
                 p.state == HabitPeriodState.skipped) &&
@@ -664,7 +666,12 @@ class PatternsEngine {
         }
       }
     }
-    periods.sort((a, b) => b.start.compareTo(a.start));
+    periods.sort((a, b) {
+      final int byStart = b.start.compareTo(a.start);
+      if (byStart != 0) return byStart;
+      final int byTitle = a.title.compareTo(b.title);
+      return byTitle != 0 ? byTitle : a.habitId.compareTo(b.habitId);
+    });
     // Evidence counts: how many saved tasks (or habits) were looked at. With
     // none, an empty list says nothing; with some, an empty list is a result.
     PatternEvidence evidence(int looked, PatternEvidenceReason reason) =>
