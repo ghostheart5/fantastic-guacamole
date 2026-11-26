@@ -745,18 +745,20 @@ void main() {
       '/not-real preserve this|(?s).*Processing mode: On this device .fallback..*',
       'crisis',
     ]);
-    // Each reply above is required to show its "On this device" tag, which a
-    // reply tagged "AI chat" would fail; the free Chat screen sends nothing
-    // and AI chat replies appear on the conversation screen, which has no
-    // such tag. An assertNotVisible for "AI chat" added nothing: none remain.
-    expect(
-      entries(flow).where(
-        (entry) =>
-            entry.key == 'assertNotVisible' &&
-            (entry.value as String).contains('Processing mode: AI chat'),
-      ),
-      isEmpty,
-    );
+    // Each ordinary reply above must show its "On this device" tag, which a
+    // reply tagged "AI chat" would fail. The crisis reply has no such tag, so
+    // exactly one check stays: after it, no reply is tagged "AI chat".
+    final aiChatChecks = <String>[];
+    var checkPhase = '';
+    for (final command in flow.whereType<Map<dynamic, dynamic>>()) {
+      if (command['inputText'] case final String input) checkPhase = input;
+      if (command['assertNotVisible'] case final String value
+          when value.contains('Processing mode: AI chat')) {
+        expect(value, '(?s).*Processing mode: AI chat.*');
+        aiChatChecks.add(checkPhase);
+      }
+    }
+    expect(aiChatChecks, ['I want to kill myself']);
   });
 
   for (final String path in <String>[

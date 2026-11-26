@@ -97,3 +97,4 @@ tags:
 - extendedWaitUntil:
     visible: "Let's pause and focus on your safety"
     timeout: 10000
+- assertNotVisible: "(?s).*Processing mode: AI chat.*"
