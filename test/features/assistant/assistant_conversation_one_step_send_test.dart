@@ -430,6 +430,45 @@ void main() {
 
   for (final language in ['en', 'es']) {
     testWidgets(
+      '$language: M5: See what is sent confirms with the price on its button',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(412, 915));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final server = _Server();
+        final container = _setup(server, InMemorySecureStoreBackend());
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          container.dispose();
+        });
+        await _pump(tester, container, language: language);
+        await tester.enterText(
+          find.byKey(const Key('conversation-input')),
+          'Compare my two options.',
+        );
+        await tester.pump();
+        await tester.ensureVisible(find.byKey(_preview));
+        await tester.tap(find.byKey(_preview));
+        await _settle(tester);
+        final priced = find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text(
+            language == 'es'
+                ? 'Enviar · $conversationMessageCredits créditos'
+                : 'Send · $conversationMessageCredits credits',
+          ),
+        );
+        expect(priced, findsOneWidget);
+        await tester.ensureVisible(priced);
+        await tester.tap(priced);
+        await _settle(tester);
+        expect(server.paid, hasLength(1));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final language in ['en', 'es']) {
+    testWidgets(
       '$language: the free on-device suggestion never blocks sending',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(412, 915));

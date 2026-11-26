@@ -88,8 +88,14 @@ extension _OneStepSend on _AssistantConversationScreenState {
   }
 
   /// The full preview: the question, the recent messages and every record
-  /// the request carries, all visible without another tap.
-  Future<bool> _reviewWhatIsSent(String prompt, ConversationPacket packet) {
+  /// the request carries, all visible without another tap. Opened from See
+  /// what is sent ([priced]), its confirm button states the price, as the
+  /// send button does.
+  Future<bool> _reviewWhatIsSent(
+    String prompt,
+    ConversationPacket packet, {
+    required bool priced,
+  }) {
     final recent = (packet.toJson()['history'] as List)
         .whereType<Map<Object?, Object?>>()
         .map(
@@ -145,7 +151,7 @@ extension _OneStepSend on _AssistantConversationScreenState {
           ),
         ],
       ),
-      action: copy('Send', 'Enviar'),
+      action: priced ? _sendLabel : copy('Send', 'Enviar'),
     );
   }
 

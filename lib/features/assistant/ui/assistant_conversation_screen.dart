@@ -570,7 +570,11 @@ class _AssistantConversationScreenState
         final previews = ref.read(conversationPreviewMemoryProvider);
         final selection = _selectionKey(packet);
         if (showPreview || !previews.hasAccepted(widget.surface, selection)) {
-          final proceed = await _reviewWhatIsSent(prompt, packet);
+          final proceed = await _reviewWhatIsSent(
+            prompt,
+            packet,
+            priced: showPreview,
+          );
           if (!current() || !proceed) return;
           previews.accept(widget.surface, selection);
         }
