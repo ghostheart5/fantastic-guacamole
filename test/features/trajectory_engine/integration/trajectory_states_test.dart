@@ -309,7 +309,7 @@ void main() {
       expect(find.text('Add a task'), findsOneWidget);
       expect(find.text('If you keep going as you are'), findsNothing);
       expect(find.text('7 days'), findsNothing);
-      expect(find.text('Maintain current course'), findsNothing);
+      expect(find.text('Keep going as you are'), findsNothing);
       expect(find.text('Energy you recorded'), findsOneWidget);
       expect(find.text('64%'), findsOneWidget);
 

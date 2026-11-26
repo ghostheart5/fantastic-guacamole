@@ -27,7 +27,8 @@ void main() {
     expect(find.text('Ligera, 18%'), findsOneWidget);
     expect(find.text('Carga de trabajo'), findsWidgets);
     expect(find.text('Estimación'), findsWidgets);
-    expect(find.text('De tus registros'), findsWidgets);
+    // Tasks in the range are counted from the plan, not from records.
+    expect(find.text('De tu plan'), findsWidgets);
     expect(find.text('Opciones'), findsOneWidget);
     expect(
       find.text(

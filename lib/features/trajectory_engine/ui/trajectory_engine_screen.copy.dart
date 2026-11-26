@@ -256,6 +256,12 @@ final RegExp _reportedTrajectoryFraming = RegExp(
 
 String _trajectoryGeneratedText(BuildContext context, String value) {
   final String? plain = switch (value) {
+    // The keep-going option goes by the page's own name for it.
+    'Maintain current course' => journeyText(
+      context,
+      'Keep going as you are',
+      'Seguir como vas',
+    ),
     'Person context was unavailable at scenario construction, so no personal context was inferred.' =>
       journeyText(
         context,
@@ -367,7 +373,6 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
     'The protected block is attempted.':
         'Se intenta completar el bloque protegido.',
     'Delay the milestone': 'Aplazar el hito',
-    'Maintain current course': 'Mantener el rumbo actual',
     'Use the suggested option in this estimate':
         'Aplicar la recomendación de Elegir un paso',
     'Apply Choose a step recommendation':

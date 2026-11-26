@@ -361,7 +361,7 @@ void main() {
         (
           const Locale('en'),
           <String, String>{
-            'Maintain current course': 'Review on Schedule',
+            'Keep going as you are': 'Review on Schedule',
             'Keep the suggested plan': 'Open Choose a step',
             'Complete Draft the proposal': 'Mark done…',
             'Delay the milestone': 'Edit this task',
@@ -372,7 +372,7 @@ void main() {
         (
           const Locale('es'),
           <String, String>{
-            'Mantener el rumbo actual': 'Revisar en agenda',
+            'Seguir como vas': 'Revisar en agenda',
             'Proteger el camino de Elegir un paso': 'Abrir Elegir un paso',
             'Completar Draft the proposal': 'Marcar como hecha…',
             'Aplazar el hito': 'Editar esta tarea',
