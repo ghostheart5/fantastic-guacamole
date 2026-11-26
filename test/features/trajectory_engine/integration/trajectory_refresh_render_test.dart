@@ -347,11 +347,11 @@ void main() {
       );
       await tester.pump();
       await tester.scrollUntilVisible(
-        find.text('Review adjustment').hitTestable(),
+        find.text('Open Choose a step').hitTestable(),
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.text('Review adjustment').hitTestable());
+      await tester.tap(find.text('Open Choose a step').hitTestable());
       await tester.pump();
       expect(container.read(appFlowProvider), AppView.smartPlanner);
       expect(find.byType(TimelineScreen), findsNothing);
