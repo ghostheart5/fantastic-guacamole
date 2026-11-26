@@ -221,7 +221,7 @@ androidComponents {
 
 dependencies {
 
-    implementation("androidx.core:core-splashscreen:1.0.1")
+    implementation("androidx.core:core-splashscreen:1.2.0")
     // Billing Library version is intentionally NOT pinned here.
     // in_app_purchase_android manages its own billing dependency; an explicit
     // pin either duplicates or overrides what the plugin expects, which can
