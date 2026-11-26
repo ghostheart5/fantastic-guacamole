@@ -149,10 +149,10 @@ ProviderContainer _container({
   AccountStorageScope Function()? readScope,
   Completer<void>? paidGate,
   SecureStoreBackend? historyBackend,
-  // A price that ends this long after it is given (default: far away).
-  Duration? quoteLife,
   // Runs as the paid request reaches the server.
   void Function()? onPaid,
+  // The clock AI chat reads (default: the real one).
+  DateTime Function()? conversationClock,
 }) {
   final _Paid counter = paid ?? _Paid();
   final ProviderContainer container = setup(
@@ -173,9 +173,9 @@ ProviderContainer _container({
               'digest': 'fixture',
               'proof': 'fixture',
               'policy': 'fixture',
-              'expiresAt': quoteLife == null
-                  ? 4102444800000
-                  : DateTime.now().add(quoteLife).millisecondsSinceEpoch,
+              // Far away: the injected clock decides when it can no longer
+              // be collected (collect-by is at most 5 minutes after saving).
+              'expiresAt': 4102444800000,
             },
           },
         );
@@ -197,6 +197,7 @@ ProviderContainer _container({
     readGateway: _gateway(kind, slowTasks: slowTasks),
     conversationAvailable: ai,
     clock: () => _now.toUtc(),
+    conversationClock: conversationClock,
     readScope: readScope,
     historyBackend: historyBackend,
   );
@@ -900,7 +901,6 @@ void main() {
       onDevice: false,
       paidGate: never,
       historyBackend: backend,
-      quoteLife: const Duration(seconds: 1),
     );
     await _pump(tester, first);
     await enterChatText(tester, 'What should I do first?');
@@ -914,13 +914,14 @@ void main() {
     }
     await tester.pumpWidget(const SizedBox.shrink());
     first.dispose();
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 1500)),
-    );
+    // The app comes back after the request can no longer be collected (at
+    // most 5 minutes after it was confirmed), by the injected clock.
     final second = _container(
       ai: true,
       onDevice: true,
       historyBackend: backend,
+      conversationClock: () =>
+          DateTime.now().toUtc().add(const Duration(minutes: 6)),
     );
     addTearDown(() => _dispose(tester, second));
     await _pump(tester, second);

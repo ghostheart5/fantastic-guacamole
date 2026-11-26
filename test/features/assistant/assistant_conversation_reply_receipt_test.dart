@@ -167,7 +167,7 @@ ProviderContainer _setup(
     siV2EvidenceSnapshotProvider.overrideWith(
       (ref) => _gatewayFor(
         ref.watch(accountStorageScopeProvider).v2Namespace,
-      ).read(observedAt: DateTime.now()),
+      ).read(observedAt: ref.read(conversationClockProvider)()),
     ),
     domainTaskRepositoryProvider.overrideWithValue(_Tasks()),
     selectedPlanningNoteProvider.overrideWith((ref) async => null),

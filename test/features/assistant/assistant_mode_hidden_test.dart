@@ -99,9 +99,7 @@ class _Server {
             'digest': 'fixture',
             'proof': 'fixture',
             'policy': 'fixture',
-            'expiresAt': DateTime.now()
-                .add(const Duration(minutes: 5))
-                .millisecondsSinceEpoch,
+            'expiresAt': 4102444800000, // Far away: not real time.
           },
         },
       );

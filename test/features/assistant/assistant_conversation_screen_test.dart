@@ -99,8 +99,12 @@ ProviderContainer setup(
   bool externalAiBuild = false,
   // A fixed clock for the free assistant's answers.
   DateTime Function()? clock,
+  // The clock AI chat reads (when a stored request can still be collected).
+  DateTime Function()? conversationClock,
 }) => ProviderContainer(
   overrides: [
+    if (conversationClock != null)
+      conversationClockProvider.overrideWithValue(conversationClock),
     if (guidance != null) adaptiveGuidanceProvider.overrideWith(() => guidance),
     // With [preferences], the real account-scoped preference store is used.
     if (preferences != null) ...[
