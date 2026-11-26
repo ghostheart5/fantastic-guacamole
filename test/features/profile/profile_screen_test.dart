@@ -13,6 +13,7 @@ import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/theme/app_theme.dart';
+import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -375,7 +376,7 @@ void main() {
     );
   }
 
-  testWidgets('PROGRESSION updates the URL and opens its destination', (
+  testWidgets('the Patterns button updates the URL and opens its destination', (
     WidgetTester tester,
   ) async {
     final GoRouter router = GoRouter(
@@ -395,9 +396,16 @@ void main() {
     );
     addTearDown(router.dispose);
 
-    await pumpProfile(tester, ProfileState(), router: router);
-    await tester.tap(find.text('Activity'));
+    final ProviderContainer container = await pumpProfile(
+      tester,
+      ProfileState(),
+      router: router,
+    );
+    expect(find.text('Activity'), findsNothing);
+    await tester.tap(find.text('Patterns'));
     await tester.pumpAndSettle();
+    // Back from Patterns returns here.
+    expect(container.read(activityOriginProvider), AppView.profile);
 
     expect(
       router.routeInformationProvider.value.uri.path,

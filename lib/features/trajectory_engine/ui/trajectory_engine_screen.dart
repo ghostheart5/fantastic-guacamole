@@ -1,4 +1,6 @@
 import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
+import 'package:fantastic_guacamole/l10n/insights_copy.dart';
+import 'package:fantastic_guacamole/ui/navigation/insights_destination_switch.dart';
 import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 
 import 'dart:async';
@@ -159,11 +161,7 @@ class _TrajectoryEngineScreenState
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
                     children: <Widget>[
                       TemporalScreenHeader(
-                        title: journeyText(
-                          context,
-                          'Patterns & future outcomes',
-                          'Patrones y resultados futuros',
-                        ),
+                        title: InsightsCopy.of(context).futureOutcomes,
                         subtitle: journeyText(
                           context,
                           'See where your current plan could lead. Choose an option to explore a different outcome.',
@@ -174,7 +172,6 @@ class _TrajectoryEngineScreenState
                           'Predictions are possibilities, not promises',
                           'Las predicciones son posibilidades, no promesas',
                         ),
-                        onBack: () => goToAppView(context, ref, AppView.nexus),
                         trailing: IconButton(
                           tooltip: journeyText(
                             context,
@@ -190,6 +187,10 @@ class _TrajectoryEngineScreenState
                               : () => _refresh(comparison),
                           icon: const Icon(Icons.refresh_rounded),
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                      const InsightsDestinationSwitch(
+                        current: AppView.trajectoryEngine,
                       ),
                       const SizedBox(height: 12),
                       _DisclosurePanel(
@@ -230,8 +231,8 @@ class _TrajectoryEngineScreenState
                               ),
                               journeyText(
                                 context,
-                                'My patterns & progress shows what you have actually done: tasks finished, your streak and your pressure.',
-                                'Mis patrones y progreso muestra lo que de verdad hiciste: tareas terminadas, tu racha y tu presión.',
+                                '${InsightsCopy.patternsEn} shows what you have actually done: tasks finished, your streak and your pressure. Use the switch at the top to open it.',
+                                '${InsightsCopy.patternsEs} muestra lo que de verdad hiciste: tareas terminadas, tu racha y tu presión. Usa el selector de arriba para abrirlo.',
                               ),
                               journeyText(
                                 context,
@@ -254,22 +255,6 @@ class _TrajectoryEngineScreenState
                         ),
                       ),
                       const SizedBox(height: 20),
-                      OutlinedButton.icon(
-                        key: const Key('insights-patterns'),
-                        onPressed: () => openActivityFrom(
-                          context,
-                          ref,
-                          AppView.trajectoryEngine,
-                        ),
-                        icon: const Icon(Icons.insights_outlined),
-                        label: Text(
-                          journeyText(
-                            context,
-                            'My patterns & progress',
-                            'Mis patrones y progreso',
-                          ),
-                        ),
-                      ),
                       const SizedBox(height: 12),
                       _TrajectoryStateNotice(
                         // The updating overlay reports refresh progress. Keep this

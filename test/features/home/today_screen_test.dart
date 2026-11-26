@@ -14,6 +14,7 @@ import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/one_tap_questions.dart';
 import 'package:fantastic_guacamole/features/home/ui/today_screen.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/l10n/insights_copy.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
@@ -313,6 +314,33 @@ void main() {
     );
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  for (final language in ['en', 'es']) {
+    testWidgets(
+      '$language: the Insights card reads its names from InsightsCopy',
+      (tester) async {
+        await pumpToday(tester, locale: Locale(language));
+        final InsightsCopy copy = InsightsCopy(language == 'es');
+        final card = find.byKey(const Key('today-insights'));
+        await tester.ensureVisible(card);
+        expect(
+          find.descendant(of: card, matching: find.text(copy.todayCardTitle)),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: card,
+            matching: find.text(copy.todayCardSubtitle),
+          ),
+          findsOneWidget,
+        );
+        // The retired two-name title is gone.
+        expect(find.text('Patterns & future outcomes'), findsNothing);
+        expect(find.text('Patrones y resultados futuros'), findsNothing);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
 
   testWidgets('Chat and insights retain their canonical destinations', (
     tester,

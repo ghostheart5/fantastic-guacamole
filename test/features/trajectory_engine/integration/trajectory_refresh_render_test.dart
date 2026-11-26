@@ -19,6 +19,7 @@ import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/ui/navigation/insights_destination_switch.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/rendering.dart';
@@ -506,7 +507,7 @@ void main() {
   );
 
   testWidgets(
-    'focused Track cannot write while refreshing and Back remains usable',
+    'focused Track cannot write while refreshing and the switch remains usable',
     (tester) async {
       final container = await _open(tester);
       final scroll = find.byType(Scrollable).first;
@@ -554,8 +555,15 @@ void main() {
             .onPressed,
         isNull,
       );
-      await tester.tap(find.byTooltip('Back'));
-      expect(container.read(appFlowProvider), AppView.nexus);
+      // The Insights root has no Back arrow; the two-part switch still works.
+      expect(find.byTooltip('Back'), findsNothing);
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(InsightsDestinationSwitch.switchKey),
+          matching: find.text('Patterns'),
+        ),
+      );
+      expect(container.read(appFlowProvider), AppView.progression);
       expect(tester.takeException(), isNull);
     },
   );

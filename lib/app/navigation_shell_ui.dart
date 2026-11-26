@@ -20,7 +20,7 @@ extension _NavigationShellUi on _NavigationShellState {
       );
     }
 
-    // The tabs stay mounted while an overlay (Activity opened from a tab) covers
+    // The tabs stay mounted while an overlay (Patterns, inside Insights) covers
     // them, so the tab's own state is still there when Back returns to it.
     return Stack(
       fit: StackFit.expand,
@@ -466,6 +466,7 @@ extension _NavigationShellUi on _NavigationShellState {
             ),
             onTap: () {
               Navigator.of(context).pop();
+              _patternsFromTools = target == AppView.progression;
               _goToView(target);
             },
           );

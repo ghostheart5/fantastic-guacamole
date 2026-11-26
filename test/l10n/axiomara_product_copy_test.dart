@@ -124,7 +124,7 @@ void main() {
           copy.shortcutLabel(
             SIConsoleShortcutRegistry.parse('/progression').definition!,
           ),
-          spanish ? 'Actividad' : 'Activity',
+          spanish ? 'Patrones' : 'Patterns',
         );
       }
       expect(SIV2Source.timeline.label, 'Schedule');
@@ -179,7 +179,7 @@ void main() {
       AppView.creator: 'Add something',
       AppView.smartPlanner: 'Choose a step',
       AppView.console: 'Chat',
-      AppView.progression: 'Activity',
+      AppView.progression: 'Patterns',
       AppView.settings: 'Settings',
     };
     final Map<AppView, String> expectedSpanish = <AppView, String>{
@@ -190,7 +190,7 @@ void main() {
       AppView.creator: 'Añadir algo',
       AppView.smartPlanner: 'Elegir un paso',
       AppView.console: 'Chat',
-      AppView.progression: 'Actividad',
+      AppView.progression: 'Patrones',
       AppView.settings: 'Ajustes',
     };
 

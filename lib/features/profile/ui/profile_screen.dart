@@ -202,7 +202,7 @@ class _ProfileBody extends ConsumerWidget {
           onTimeline: () => Navigator.of(context).push<void>(
             MaterialPageRoute<void>(builder: (_) => const TimelineScreen()),
           ),
-          onProgression: () => goToAppView(context, ref, AppView.progression),
+          onProgression: () => openActivityFrom(context, ref, AppView.profile),
           onInviteFriends: () => _inviteFriends(context, state),
         ),
       ],

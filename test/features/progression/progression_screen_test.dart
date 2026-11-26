@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -18,6 +19,8 @@ import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/state/logs_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/navigation/insights_destination_switch.dart';
+import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
@@ -28,6 +31,12 @@ import 'package:flutter_test/flutter_test.dart';
 /// that renders XP, level, streak and weekly summary state. These are smoke
 /// tests: they prove the screen mounts and survives the states a real user
 /// actually hits, rather than asserting on exact copy.
+/// A screen title, not the same word on the Insights switch below it.
+Finder _title(String text) => find.descendant(
+  of: find.byType(TemporalScreenHeader),
+  matching: find.text(text),
+);
+
 void main() {
   Future<ProviderContainer> pumpProgression(
     WidgetTester tester, {
@@ -103,7 +112,7 @@ void main() {
   }
 
   testWidgets(
-    'Activity includes saved daily weekly and monthly habit outcomes',
+    'Patterns includes saved daily weekly and monthly habit outcomes',
     (tester) async {
       await pumpProgression(
         tester,
@@ -153,7 +162,7 @@ void main() {
           status: ProgressionReviewStatus.empty,
         ),
       );
-      expect(find.text('Actividad'), findsOneWidget);
+      expect(_title('Patrones'), findsOneWidget);
       expect(find.byTooltip('Compartir progreso'), findsOneWidget);
       expect(find.text('IMPULSO DE FINALIZACIÓN'), findsOneWidget);
       expect(find.text('Fiabilidad de planificación'), findsOneWidget);
@@ -173,7 +182,7 @@ void main() {
   ) async {
     await pumpProgression(tester, trajectory: _emptyTrajectory);
 
-    expect(find.text('Activity'), findsOneWidget);
+    expect(_title('Patterns'), findsOneWidget);
     expect(find.text('Not enough evidence'), findsOneWidget);
     expect(find.text('Not enough history'), findsOneWidget);
     expect(find.text('Off Track'), findsNothing);
@@ -189,7 +198,7 @@ void main() {
   ) async {
     await pumpProgression(tester, trajectory: _activeTrajectory);
 
-    expect(find.text('Activity'), findsOneWidget);
+    expect(_title('Patterns'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -270,7 +279,7 @@ void main() {
       physicalSize: const Size(412, 915),
     );
 
-    expect(find.text('Activity'), findsOneWidget);
+    expect(_title('Patterns'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -281,7 +290,7 @@ void main() {
     // the populated-prediction path had never been rendered anywhere.
     await pumpProgression(tester, trajectory: _predictiveTrajectory);
 
-    expect(find.text('Activity'), findsOneWidget);
+    expect(_title('Patterns'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -341,10 +350,9 @@ void main() {
     },
   );
 
-  for (final activation in ['semantics', 'pointer']) {
-    testWidgets('Activity exposes one Back action; $activation returns once', (
-      WidgetTester tester,
-    ) async {
+  testWidgets(
+    'Patterns has no back control; the switch moves to Future outcomes',
+    (WidgetTester tester) async {
       final semantics = tester.ensureSemantics();
       try {
         final flow = _CountingAppFlowController();
@@ -353,57 +361,51 @@ void main() {
           trajectory: _activeTrajectory,
           appFlowOverride: flow,
         );
-        final initializedFlow = container.read(appFlowProvider.notifier);
-        expect(initializedFlow, same(flow));
-        initializedFlow.toProgression();
+        container.read(appFlowProvider.notifier).toProgression();
         await tester.pump();
 
-        final owner = tester.binding.renderViews.single.owner!.semanticsOwner!;
-        final actionableBack = <SemanticsNode>[];
-        void inspect(SemanticsNode node) {
-          final data = node.getSemanticsData();
-          if ((data.label == 'Back to Today' ||
-                  data.tooltip == 'Back to Today') &&
-              data.flagsCollection.isButton &&
-              data.hasAction(SemanticsAction.tap)) {
-            actionableBack.add(node);
-          }
-          node.visitChildren((child) {
-            inspect(child);
-            return true;
-          });
-        }
+        expect(find.byIcon(Icons.arrow_back_rounded), findsNothing);
+        expect(find.byTooltip('Back to Today'), findsNothing);
+        expect(find.byTooltip('Back to Insights'), findsNothing);
+        expect(find.bySemanticsLabel('Back to Today'), findsNothing);
 
-        // Widget finders alone miss an IconButton's additional native semantics.
-        inspect(owner.rootSemanticsNode!);
-        expect(actionableBack, hasLength(1));
-        final back = actionableBack.single;
-        expect(back.rect.size, const Size(48, 48));
-        expect(back.rect.size, tester.getSize(find.byTooltip('Back to Today')));
-        final title = tester.getSemantics(find.text('Activity'));
-        final share = tester.getSemantics(find.byTooltip('Share progress'));
-        expect(title.id, isNot(back.id));
+        // The title is a heading, not a control.
+        final title = tester.getSemantics(_title('Patterns'));
         expect(
           title.getSemanticsData().hasAction(SemanticsAction.tap),
           isFalse,
         );
-        expect(share.id, isNot(back.id));
+        final share = tester.getSemantics(find.byTooltip('Share progress'));
         expect(share.id, isNot(title.id));
         expect(share.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
 
-        if (activation == 'semantics') {
-          owner.performAction(back.id, SemanticsAction.tap);
-        } else {
-          await tester.tap(find.byIcon(Icons.arrow_back_rounded));
-        }
+        // Patterns is the selected part of the switch.
+        final selected = tester
+            .getSemantics(
+              find
+                  .descendant(
+                    of: find.byKey(InsightsDestinationSwitch.switchKey),
+                    matching: find.bySemanticsLabel('Patterns'),
+                  )
+                  .last,
+            )
+            .getSemanticsData();
+        expect(selected.flagsCollection.isSelected, ui.Tristate.isTrue);
+
+        await tester.tap(
+          find.descendant(
+            of: find.byKey(InsightsDestinationSwitch.switchKey),
+            matching: find.text('Future outcomes'),
+          ),
+        );
         await tester.pump();
-        expect(container.read(appFlowProvider), AppView.nexus);
-        expect(flow.todayCalls, 1);
+        expect(container.read(appFlowProvider), AppView.trajectoryEngine);
+        expect(flow.todayCalls, 0);
       } finally {
         semantics.dispose();
       }
-    });
-  }
+    },
+  );
 
   testWidgets(
     'unavailable review offers retry and recovers without adding work',

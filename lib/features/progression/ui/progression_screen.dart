@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/l10n/insights_copy.dart';
+import 'package:fantastic_guacamole/ui/navigation/insights_destination_switch.dart';
 import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 
 import 'dart:async';
@@ -247,18 +249,6 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
       );
     }
 
-    // Opened from Insights: Back returns there. Any other entry goes to Today.
-    final bool fromInsights =
-        ref.watch(activityOriginProvider) == AppView.trajectoryEngine;
-    final String backLabel = fromInsights
-        ? journeyText(context, 'Back to Insights', 'Volver a Perspectivas')
-        : journeyText(context, 'Back to Today', 'Volver a Hoy');
-    void goBack() => goToAppView(
-      context,
-      ref,
-      fromInsights ? AppView.trajectoryEngine : AppView.nexus,
-    );
-
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgProgressionAscension,
       child: Scaffold(
@@ -269,117 +259,86 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Semantics(
-                      container: true,
-                      excludeSemantics: true,
-                      label: backLabel,
-                      button: true,
-                      onTap: goBack,
-                      child: IconButton(
-                        tooltip: backLabel,
-                        onPressed: goBack,
-                        constraints: const BoxConstraints.tightFor(
-                          width: 48,
-                          height: 48,
-                        ),
-                        icon: const Icon(Icons.arrow_back_rounded),
-                        color: Colors.white,
-                      ),
+                TemporalScreenHeader(
+                  title: InsightsCopy.of(context).patterns,
+                  subtitle: journeyText(
+                    context,
+                    'Review completed tasks and recorded milestones. You can start again at any time.',
+                    'Revisa tareas completadas e hitos registrados. Puedes volver a empezar cuando quieras.',
+                  ),
+                  eyebrow: journeyText(
+                    context,
+                    'Your recorded progress',
+                    'Tu progreso registrado',
+                  ),
+                  accent: AppColors.memoryAmber,
+                  trailing: PopupMenuButton<_ProgressionShareAction>(
+                    tooltip: journeyText(
+                      context,
+                      'Share progress',
+                      'Compartir progreso',
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TemporalScreenHeader(
-                        title: journeyText(context, 'Activity', 'Actividad'),
-                        subtitle: journeyText(
-                          context,
-                          'Review completed tasks and recorded milestones. You can start again at any time.',
-                          'Revisa tareas completadas e hitos registrados. Puedes volver a empezar cuando quieras.',
-                        ),
-                        eyebrow: journeyText(
-                          context,
-                          'Your recorded progress',
-                          'Tu progreso registrado',
-                        ),
-                        accent: AppColors.memoryAmber,
-                        trailing: PopupMenuButton<_ProgressionShareAction>(
-                          tooltip: journeyText(
-                            context,
-                            'Share progress',
-                            'Compartir progreso',
-                          ),
-                          color: const Color(0xFF101827),
-                          icon: const Icon(
-                            Icons.ios_share_rounded,
-                            color: AppColors.memoryAmber,
-                          ),
-                          onSelected: (_ProgressionShareAction action) async {
-                            switch (action) {
-                              case _ProgressionShareAction.progress:
-                                await _shareProgressCard(context, ref);
-                              case _ProgressionShareAction.achievement:
-                                await _shareAchievementCard(context, ref);
-                            }
-                          },
-                          itemBuilder: (BuildContext context) => [
-                            PopupMenuItem<_ProgressionShareAction>(
-                              value: _ProgressionShareAction.progress,
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.insights_rounded,
-                                    color: AppColors.memoryAmber,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Flexible(
-                                    child: Text(
-                                      journeyText(
-                                        context,
-                                        'Progress snapshot',
-                                        'Resumen de progreso',
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                    color: const Color(0xFF101827),
+                    icon: const Icon(
+                      Icons.ios_share_rounded,
+                      color: AppColors.memoryAmber,
+                    ),
+                    onSelected: (_ProgressionShareAction action) async {
+                      switch (action) {
+                        case _ProgressionShareAction.progress:
+                          await _shareProgressCard(context, ref);
+                        case _ProgressionShareAction.achievement:
+                          await _shareAchievementCard(context, ref);
+                      }
+                    },
+                    itemBuilder: (BuildContext context) => [
+                      PopupMenuItem<_ProgressionShareAction>(
+                        value: _ProgressionShareAction.progress,
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.insights_rounded,
+                              color: AppColors.memoryAmber,
                             ),
-                            PopupMenuItem<_ProgressionShareAction>(
-                              value: _ProgressionShareAction.achievement,
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.emoji_events_outlined,
-                                    color: AppColors.neonCyan,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Flexible(
-                                    child: Text(
-                                      journeyText(
-                                        context,
-                                        'Achievement',
-                                        'Logro',
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                            const SizedBox(width: 10),
+                            Flexible(
+                              child: Text(
+                                journeyText(
+                                  context,
+                                  'Progress snapshot',
+                                  'Resumen de progreso',
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: Colors.white),
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                  ],
+                      PopupMenuItem<_ProgressionShareAction>(
+                        value: _ProgressionShareAction.achievement,
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.emoji_events_outlined,
+                              color: AppColors.neonCyan,
+                            ),
+                            const SizedBox(width: 10),
+                            Flexible(
+                              child: Text(
+                                journeyText(context, 'Achievement', 'Logro'),
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(height: 12),
+                const InsightsDestinationSwitch(current: AppView.progression),
                 const SizedBox(height: 18),
                 _ProgressionOverview(
                   level: progress.level,

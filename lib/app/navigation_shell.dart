@@ -112,9 +112,11 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   Timer? _networkRetryDebounceTimer;
   final Set<int> _initializedTabIndexes = <int>{};
   bool _savingCurrentState = false;
-  // An Activity origin that already existed when this shell mounted belongs to
+  // A Patterns origin that already existed when this shell mounted belongs to
   // an earlier shell (for example before sign-out) and must not be honoured.
   bool _staleActivityOrigin = false;
+  // Patterns was chosen from the Tools list: Back reopens that list.
+  bool _patternsFromTools = false;
   late final ProviderSubscription<_ReminderRecoveryOwner?>
   _reminderRecoverySubscription;
   _ReminderRecoveryOwner? _pendingReminderRecovery;
@@ -157,8 +159,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       AppView next,
     ) {
       if (next != AppView.progression) {
-        // Activity's origin only applies while Activity is showing.
+        // Patterns' origin only applies while Patterns is showing.
         ref.read(activityOriginProvider.notifier).set(null);
+        _patternsFromTools = false;
       }
       if (_isPrimaryView(next)) {
         _initializedTabIndexes.add(_tabIndexForView(next));
@@ -252,12 +255,11 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   void didUpdateWidget(covariant NavigationShell oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final bool oldWasActivityOverlay =
-        oldWidget.initialView == AppView.progression &&
-        _activityOriginIsPrimary;
-    if ((_isPrimaryView(oldWidget.initialView) || oldWasActivityOverlay) &&
-        !_isPrimaryView(widget.initialView) &&
-        _activityOverlayOrigin == null) {
+    // Patterns is drawn inside the Insights tab, so the tabs stay mounted
+    // while it is showing.
+    bool keepsTabs(AppView view) =>
+        _isPrimaryView(view) || view == AppView.progression;
+    if (keepsTabs(oldWidget.initialView) && !keepsTabs(widget.initialView)) {
       // The primary IndexedStack is removed while a secondary screen is open.
       // Its elements are no longer retained, so its initialization cache must
       // not cause stale inactive tabs to be remounted on the return build.
@@ -363,16 +365,24 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     }
   }
 
-  /// The primary view whose tab bar stays visible under Activity, or null when
-  /// Activity was opened any other way (or another view is showing).
-  AppView? get _activityOverlayOrigin {
+  /// The view Back returns to from Patterns: the screen it was opened from
+  /// (Future outcomes or Profile), or null when it was opened any other way
+  /// (Tools, a deep link, a notification), in which case Back goes to Today.
+  AppView? get _patternsBackOrigin {
     if (widget.initialView != AppView.progression) return null;
-    return _activityOriginIsPrimary ? ref.read(activityOriginProvider) : null;
+    final AppView? origin = ref.read(activityOriginProvider);
+    if (_staleActivityOrigin || origin == null) return null;
+    return origin == AppView.progression ? null : origin;
   }
 
-  bool get _activityOriginIsPrimary {
-    final AppView? origin = ref.read(activityOriginProvider);
-    return !_staleActivityOrigin && origin != null && _isPrimaryView(origin);
+  void _backFromPatterns() {
+    final AppView? origin = _patternsBackOrigin;
+    final bool reopenTools = origin == null && _patternsFromTools;
+    _goToView(origin ?? AppView.nexus);
+    if (!reopenTools) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showNavigationMap();
+    });
   }
 
   void _goToView(AppView view) {
@@ -392,9 +402,12 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   Widget build(BuildContext context) {
     final AppView view = widget.initialView;
     ref.watch(activityOriginProvider);
-    final AppView? activityOrigin = _activityOverlayOrigin;
-    final int tabIndex = _tabIndexForView(activityOrigin ?? view);
-    if (_isPrimaryView(view) || activityOrigin != null) {
+    final bool patterns = view == AppView.progression;
+    // Patterns always lives in the Insights tab, whatever opened it.
+    final int tabIndex = _tabIndexForView(
+      patterns ? AppView.trajectoryEngine : view,
+    );
+    if (_isPrimaryView(view)) {
       _initializedTabIndexes.add(tabIndex);
     }
 
@@ -406,10 +419,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       AppView.smartPlanner => const SmartPlannerScreen(),
       AppView.profile => const ProfileScreen(),
       AppView.settings => const SettingsScreen(),
-      AppView.progression =>
-        activityOrigin == null
-            ? const ProgressionScreen()
-            : _buildPrimaryShell(tabIndex, overlay: const ProgressionScreen()),
+      AppView.progression => _buildPrimaryShell(
+        tabIndex,
+        overlay: const ProgressionScreen(),
+      ),
       AppView.creator => const CreatorScreen(),
       AppView.goals => const GoalsScreen(),
     };
@@ -422,8 +435,12 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         }
         final AppView current = widget.initialView;
 
+        if (current == AppView.progression) {
+          _backFromPatterns();
+          return;
+        }
         if (current != AppView.nexus) {
-          _goToView(activityOrigin ?? AppView.nexus);
+          _goToView(AppView.nexus);
           return;
         }
 
