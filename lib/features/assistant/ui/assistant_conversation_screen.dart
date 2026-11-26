@@ -1363,6 +1363,7 @@ class _AssistantConversationScreenState
                             final abandoned = _pending?.packet.requestId;
                             if (mounted && confirmed && abandoned != null) {
                               _abandoned.add(abandoned);
+                              _reservedRetry?.cancel();
                               setState(() => _pending = null);
                               _forgetPending(abandoned);
                               // Its answer will not be used here.
