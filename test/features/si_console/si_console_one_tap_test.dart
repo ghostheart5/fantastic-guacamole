@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
@@ -147,6 +148,11 @@ ProviderContainer _container({
   Future<List<TaskEntity>> Function()? slowTasks,
   AccountStorageScope Function()? readScope,
   Completer<void>? paidGate,
+  SecureStoreBackend? historyBackend,
+  // A price that ends this long after it is given (default: far away).
+  Duration? quoteLife,
+  // Runs as the paid request reaches the server.
+  void Function()? onPaid,
 }) {
   final _Paid counter = paid ?? _Paid();
   final ProviderContainer container = setup(
@@ -167,12 +173,15 @@ ProviderContainer _container({
               'digest': 'fixture',
               'proof': 'fixture',
               'policy': 'fixture',
-              'expiresAt': 4102444800000,
+              'expiresAt': quoteLife == null
+                  ? 4102444800000
+                  : DateTime.now().add(quoteLife).millisecondsSinceEpoch,
             },
           },
         );
       }
       counter.calls++;
+      onPaid?.call();
       await paidGate.future;
       return (
         status: 200,
@@ -189,6 +198,7 @@ ProviderContainer _container({
     conversationAvailable: ai,
     clock: () => _now.toUtc(),
     readScope: readScope,
+    historyBackend: historyBackend,
   );
   container
       .read(assistantChatModeProvider.notifier)
@@ -870,6 +880,190 @@ void main() {
     expect(free, 'different words');
   });
 
+  // Fix round 4: one rule for words moving between the two boxes.
+  String box(WidgetTester tester, Key key) => tester
+      .widget<TextField>(find.byKey(key, skipOffstage: false))
+      .controller!
+      .text;
+
+  /// Chat after an app restart: a stored paid request whose price ran out
+  /// has its question put back in the hidden AI chat box, with Chat on the
+  /// free assistant.
+  Future<ProviderContainer> restartWithExpiredRequest(
+    WidgetTester tester,
+  ) async {
+    final backend = InMemorySecureStoreBackend();
+    // The reply never comes: the app is closed while it runs.
+    final never = Completer<void>();
+    final first = _container(
+      ai: true,
+      onDevice: false,
+      paidGate: never,
+      historyBackend: backend,
+      quoteLife: const Duration(seconds: 1),
+    );
+    await _pump(tester, first);
+    await enterChatText(tester, 'What should I do first?');
+    await tester.tap(find.byKey(const Key('conversation-send')));
+    for (var i = 0; i < 40 && find.text('Send').evaluate().isEmpty; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.tap(find.text('Send'));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+    first.dispose();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 1500)),
+    );
+    final second = _container(
+      ai: true,
+      onDevice: true,
+      historyBackend: backend,
+    );
+    addTearDown(() => _dispose(tester, second));
+    await _pump(tester, second);
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pumpAndSettle();
+    expect(find.byKey(_localInput), findsOneWidget);
+    expect(box(tester, _aiInput), 'What should I do first?');
+    return second;
+  }
+
+  testWidgets(
+    'free words are kept when the hidden AI chat box holds a restored question',
+    (tester) async {
+      await restartWithExpiredRequest(tester);
+      await tester.enterText(find.byKey(_localInput), 'my free words');
+      await tester.tap(find.byKey(const Key('assistant-mode-ai')));
+      await tester.pumpAndSettle();
+      expect(box(tester, _aiInput), 'What should I do first?');
+      expect(
+        find.text(
+          'Your words are still in the free assistant. AI chat already had other text, which was kept.',
+        ),
+        findsOneWidget,
+      );
+      // And back: both texts are still where they were, said plainly.
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('assistant-mode-on-device')));
+      await tester.pumpAndSettle();
+      expect(box(tester, _localInput), 'my free words');
+      expect(box(tester, _aiInput), 'What should I do first?');
+      expect(
+        find.text(
+          'Your words are still in AI chat. The free assistant already had other text, which was kept.',
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'Ask AI keeps free words when the hidden AI chat box holds a restored question',
+    (tester) async {
+      await restartWithExpiredRequest(tester);
+      await tester.enterText(find.byKey(_localInput), 'my free words');
+      await _ask(tester, SIOneTapQuestion.reachGoal);
+      final Finder askAi = find.byKey(const Key('one-tap-ask-ai'));
+      await _reveal(tester, askAi);
+      await tester.tap(askAi);
+      await tester.pumpAndSettle();
+      expect(box(tester, _aiInput), 'What should I do first?');
+      expect(
+        find.text(
+          'Your words are still in the free assistant. AI chat already had other text, which was kept. The question "Help me reach this goal" was not added.',
+        ),
+        findsOneWidget,
+      );
+      // The free words are still in the free assistant's box.
+      await tester.tap(find.byKey(const Key('assistant-mode-on-device')));
+      await tester.pumpAndSettle();
+      expect(box(tester, _localInput), 'my free words');
+      expect(box(tester, _aiInput), 'What should I do first?');
+    },
+  );
+
+  testWidgets(
+    'a question being sent stays in AI chat when a Today question wins the race',
+    (tester) async {
+      final Completer<void> gate = Completer<void>();
+      final _Paid paid = _Paid();
+      final container = _container(
+        ai: true,
+        onDevice: false,
+        paid: paid,
+        paidGate: gate,
+      );
+      addTearDown(() async {
+        if (!gate.isCompleted) gate.complete();
+        await _dispose(tester, container);
+      });
+      await _pump(tester, container);
+      await enterChatText(tester, 'What should I do first?');
+      // Send is tapped: the message is being sent from this moment. The
+      // Today question arrives in the same frame, before the free assistant
+      // has heard that a message is being sent.
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      container
+          .read(siOneTapRequestProvider.notifier)
+          .ask(SIOneTapQuestion.planMyDay);
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      // The free assistant answered the Today question...
+      expect(find.byKey(_localInput), findsOneWidget);
+      expect(find.byKey(const Key('one-tap-free-line')), findsOneWidget);
+      // ...and the sent question did not move into its box.
+      expect(box(tester, _localInput), isEmpty);
+      expect(box(tester, _aiInput), 'What should I do first?');
+      // Already on the free assistant, a second Today question is answered
+      // too: nothing would switch away from the message being sent.
+      container
+          .read(siOneTapRequestProvider.notifier)
+          .ask(SIOneTapQuestion.whatsComingUp);
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(
+        find.text(
+          'A message is being sent. Ask the question when it finishes.',
+        ),
+        findsNothing,
+      );
+      expect(container.read(siOneTapRequestProvider), isNull);
+      expect(
+        find.text(_label(SIOneTapQuestion.whatsComingUp, 'en')),
+        findsWidgets,
+      );
+      expect(paid.calls, 0, reason: 'Nothing is sent without the price tap');
+    },
+  );
+
+  testWidgets('an example question does not overwrite typed words', (
+    tester,
+  ) async {
+    final container = _container();
+    addTearDown(() => _dispose(tester, container));
+    await _pump(tester, container);
+    await tester.enterText(find.byKey(_localInput), 'my half-typed words');
+    final Finder example = find
+        .descendant(
+          of: find.byKey(const Key('si-console-welcome')),
+          matching: find.byType(OutlinedButton),
+        )
+        .first;
+    tester.widget<OutlinedButton>(example).onPressed!();
+    await tester.pumpAndSettle();
+    expect(box(tester, _localInput), 'my half-typed words');
+    // The example itself was asked.
+    expect(find.byKey(const Key('si-console-welcome')), findsNothing);
+  });
+
+  // Kept last: a typed answer leaves account storage busy for the tests
+  // after it in this file (they would wait for Chat to load).
   testWidgets(
     'a Today question that arrives during a typed answer is asked after it',
     (tester) async {

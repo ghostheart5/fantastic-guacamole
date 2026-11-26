@@ -280,6 +280,78 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+  // Fix round 4: words copied between the notes and AI chat are never lost.
+  String plannerBox(WidgetTester tester, String key) => tester
+      .widget<TextField>(find.byKey(Key(key), skipOffstage: false))
+      .controller!
+      .text;
+  Future<void> plannerSwitch(WidgetTester tester, String key) async {
+    await tester.ensureVisible(find.byKey(Key(key)));
+    await tester.pump();
+    await tester.tap(find.byKey(Key(key)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+
+  testWidgets('Choose a step: empty notes do not wipe the AI chat box', (
+    tester,
+  ) async {
+    final container = _container(conversationAvailable: true, allowedAi: true);
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      'Which step first?',
+    );
+    await plannerSwitch(tester, 'assistant-mode-on-device');
+    expect(plannerBox(tester, 'planner-context-field'), 'Which step first?');
+    await tester.enterText(find.byKey(const Key('planner-context-field')), '');
+    await tester.pump(const Duration(seconds: 2));
+    await plannerSwitch(tester, 'assistant-mode-ai');
+    expect(plannerBox(tester, 'conversation-input'), 'Which step first?');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Choose a step: typed notes are kept when AI chat holds a '
+      'question, and the line says where each one is', (tester) async {
+    final container = _container(conversationAvailable: true, allowedAi: true);
+    addTearDown(container.dispose);
+    await _pumpPlanner(tester, container);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.enterText(
+      find.byKey(const Key('conversation-input')),
+      'Which step first?',
+    );
+    await plannerSwitch(tester, 'assistant-mode-on-device');
+    await tester.enterText(
+      find.byKey(const Key('planner-context-field')),
+      'My own notes',
+    );
+    await tester.pump(const Duration(seconds: 2));
+    await plannerSwitch(tester, 'assistant-mode-ai');
+    expect(plannerBox(tester, 'conversation-input'), 'Which step first?');
+    expect(
+      find.text(
+        'Your notes are still in the free planner. AI chat already had other text, which was kept.',
+      ),
+      findsOneWidget,
+    );
+    // Let that line go before the next one.
+    for (var i = 0; i < 14; i++) {
+      await tester.pump(const Duration(milliseconds: 500));
+    }
+    await plannerSwitch(tester, 'assistant-mode-on-device');
+    expect(plannerBox(tester, 'planner-context-field'), 'My own notes');
+    expect(plannerBox(tester, 'conversation-input'), 'Which step first?');
+    expect(
+      find.text(
+        'Your words are still in AI chat. Your notes in the free planner were kept.',
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
   for (final signInChange in [false, true]) {
     testWidgets(
       signInChange

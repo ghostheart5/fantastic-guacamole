@@ -60,8 +60,6 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   // been consumed, so it cannot take that request from the free planner.
   bool _firstValueDone = false;
   bool _aiUpdate = false;
-  String _aiDraft = '';
-  int _aiDraftRevision = 0;
   double? _energy;
   int _checkInRevision = 0;
   EmotionalState? get _emotion => ref.read(currentPlannerEmotionProvider);

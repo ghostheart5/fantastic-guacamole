@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/domain/entities/assistant_conversation_histo
 import 'package:fantastic_guacamole/features/assistant/ui/ai_chat_consent.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_mode_switch.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/assistant_response_body.dart';
+import 'package:fantastic_guacamole/features/assistant/ui/draft_transfer.dart';
 import 'package:fantastic_guacamole/features/assistant/ui/one_tap_questions.dart';
 import 'package:fantastic_guacamole/domain/entities/si_one_tap_question.dart';
 import 'package:fantastic_guacamole/domain/entities/assistant_conversation.dart';
@@ -84,12 +85,13 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
     required this.onLocalTools,
     this.onLocalToolsWithDraft,
     this.isActive = true,
-    this.incomingDraft = '',
-    this.incomingDraftRevision = 0,
+    this.freeBox,
+    this.onFreeBoxChanged,
+    this.suggestion = '',
+    this.suggestionRevision = 0,
     this.hidden = false,
     this.onUpdateWhileHidden,
     this.onQuickQuestion,
-    this.onTypedHandOver,
     this.onBusyChanged,
   });
   final ConversationSurface surface;
@@ -97,14 +99,17 @@ class AssistantConversationScreen extends ConsumerStatefulWidget {
   final ValueChanged<String>? onLocalToolsWithDraft;
   final bool isActive;
 
-  /// Text typed on the free tools, carried over when the person switches to AI
-  /// chat. A new [incomingDraftRevision] makes this screen take the text.
-  final String incomingDraft;
-  final int incomingDraftRevision;
+  /// The free side's text box. Each time this screen is shown or hidden the
+  /// typed words go between that box and this one by [DraftTransfer].
+  final TextEditingController? freeBox;
 
-  /// Chat only: called with the typed words when this screen goes out of
-  /// sight. They go to the free assistant and the box here is emptied.
-  final ValueChanged<String>? onTypedHandOver;
+  /// Called after this screen changed the text of [freeBox].
+  final VoidCallback? onFreeBoxChanged;
+
+  /// A suggested question for the box, offered the next time this screen is
+  /// shown after [suggestionRevision] changes.
+  final String suggestion;
+  final int suggestionRevision;
 
   /// The free assistant is shown in front of this screen. A reply, a failure
   /// or a collected request that arrives meanwhile is reported through
@@ -224,46 +229,9 @@ class _AssistantConversationScreenState
       _shownGate?.complete();
       _shownGate = null;
     }
-    // Chat: the words travel with the person, they are not copied. When this
-    // screen goes out of sight its typed words go to the free assistant and
-    // the box is emptied, so coming back finds it empty.
-    if (widget.onTypedHandOver != null && !oldWidget.hidden && widget.hidden) {
-      final String typed = _input.text.trim();
-      if (typed.isNotEmpty) {
-        widget.onTypedHandOver!(typed);
-        _input.clear();
-      }
-    }
-    if (oldWidget.incomingDraftRevision != widget.incomingDraftRevision) {
-      final String incoming = widget.incomingDraft;
-      final String typed = _input.text.trim();
-      if (widget.surface == ConversationSurface.planner) {
-        // Choose a step keeps its own rule: the carried text, even empty.
-        _input.value = TextEditingValue(
-          text: incoming,
-          selection: TextSelection.collapsed(offset: incoming.length),
-        );
-      } else if (incoming.trim().isEmpty || typed == incoming.trim()) {
-        // Nothing to add: an empty draft never clears a typed message.
-      } else if (typed.isEmpty) {
-        _input.value = TextEditingValue(
-          text: incoming,
-          selection: TextSelection.collapsed(offset: incoming.length),
-        );
-      } else {
-        // A typed message is never replaced. Said plainly, after the frame.
-        final String line = copy(
-          'Your message in AI chat was kept. The other text was not added to it.',
-          'Se conservó tu mensaje en el chat con IA. El otro texto no se añadió.',
-        );
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            ScaffoldMessenger.maybeOf(
-              context,
-            )?.showSnackBar(SnackBar(content: Text(line)));
-          }
-        });
-      }
+    final TextEditingController? freeBox = widget.freeBox;
+    if (freeBox != null && oldWidget.hidden != widget.hidden) {
+      _transferDraft(freeBox, toAi: !widget.hidden);
     }
     if (oldWidget.isActive && !widget.isActive) {
       _voiceActivation++;
@@ -271,6 +239,76 @@ class _AssistantConversationScreenState
       controller?.invalidatePendingCapture();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (controller != null) unawaited(controller.stopListening());
+      });
+    }
+  }
+
+  int _suggestionTaken = 0;
+
+  /// Moves typed words between [freeBox] and this screen's box as this screen
+  /// is shown ([toAi]) or hidden, by the one rule in [DraftTransfer].
+  void _transferDraft(TextEditingController freeBox, {required bool toAi}) {
+    final String aiText = _input.text;
+    final String? sentPrompt = _pending?.packet.toJson()['prompt'] as String?;
+    // A question sent and waiting for its reply is not a draft.
+    final bool sent =
+        _busy || (sentPrompt != null && aiText.trim() == sentPrompt.trim());
+    var suggestion = '';
+    if (toAi && widget.suggestionRevision != _suggestionTaken) {
+      _suggestionTaken = widget.suggestionRevision;
+      suggestion = widget.suggestion;
+    }
+    final DraftTransfer result = DraftTransfer.decide(
+      source: toAi ? freeBox.text : aiText,
+      destination: toAi ? aiText : freeBox.text,
+      toAi: toAi,
+      planner: widget.surface == ConversationSurface.planner,
+      isSpanish: _spanish,
+      sourceSent: !toAi && sent,
+      destinationSent: toAi && sent,
+      suggestion: suggestion,
+    );
+    final String ai = toAi ? result.destination : result.source;
+    final String free = toAi ? result.source : result.destination;
+    if (ai != aiText) {
+      _input.value = TextEditingValue(
+        text: ai,
+        selection: TextSelection.collapsed(offset: ai.length),
+      );
+    }
+    final int generation = _generation;
+    void applyFree() {
+      if (freeBox.text == free) return;
+      freeBox.value = TextEditingValue(
+        text: free,
+        selection: TextSelection.collapsed(offset: free.length),
+      );
+      final VoidCallback? changed = widget.onFreeBoxChanged;
+      if (changed != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) changed();
+        });
+      }
+    }
+
+    // Hidden: the free box is being built now and takes the text at once.
+    // Shown: the free box is still on screen this frame; it is emptied
+    // after the frame, when this box already holds the words.
+    if (!toAi) {
+      applyFree();
+    } else if (free != freeBox.text) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && generation == _generation) applyFree();
+      });
+    }
+    final String? line = result.notice;
+    if (line != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && generation == _generation) {
+          ScaffoldMessenger.maybeOf(
+            context,
+          )?.showSnackBar(SnackBar(content: Text(line)));
+        }
       });
     }
   }

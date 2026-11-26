@@ -32,11 +32,8 @@ extension _PlannerChatMode on _SmartPlannerScreenState {
         replyReady: _aiUpdate,
         onChooseOnDevice: () {},
         onChooseAi: () {
-          _rebuild(() {
-            _aiDraft = _notesController.text.trim();
-            _aiDraftRevision++;
-            _aiUpdate = false;
-          });
+          // AI chat takes a copy of the notes as it is shown.
+          _rebuild(() => _aiUpdate = false);
           _chooseMode(onDevice: false);
         },
       ),
@@ -51,10 +48,7 @@ extension _PlannerChatMode on _SmartPlannerScreenState {
     ref.listen(accountStorageScopeProvider, (previous, next) {
       if (previous?.v2Namespace == next.v2Namespace) return;
       // Nothing typed or arrived for one account goes to the next.
-      _rebuild(() {
-        _aiDraft = '';
-        _aiUpdate = false;
-      });
+      _rebuild(() => _aiUpdate = false);
     });
     if (!aiAvailable && !ref.watch(assistantChatInBuildProvider)) {
       return _buildOnDevice(context);
@@ -82,20 +76,14 @@ extension _PlannerChatMode on _SmartPlannerScreenState {
                       if (mounted) _rebuild(() => _aiUpdate = true);
                     },
                     surface: ConversationSurface.planner,
-                    incomingDraft: _aiDraft,
-                    incomingDraftRevision: _aiDraftRevision,
+                    // Typed words are copied between the notes and AI chat
+                    // whenever AI chat is shown or hidden (DraftTransfer).
+                    freeBox: _notesController,
+                    // Controller assignments do not call the field's
+                    // onChanged handler. An old plan must not remain
+                    // actionable for new notes.
+                    onFreeBoxChanged: _clearChangedCheckIn,
                     onLocalTools: () => _chooseMode(onDevice: true),
-                    onLocalToolsWithDraft: (String draft) {
-                      // An empty AI box keeps the free planner's notes and plan.
-                      if (draft.isNotEmpty && draft != _notesController.text) {
-                        // Controller assignments do not call the field's
-                        // onChanged handler. An old plan must not remain
-                        // actionable for this new request.
-                        _clearChangedCheckIn();
-                        _notesController.text = draft;
-                      }
-                      _chooseMode(onDevice: true);
-                    },
                   ),
                 ),
               ),

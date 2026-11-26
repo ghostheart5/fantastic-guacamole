@@ -120,8 +120,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   bool _aiUpdate = false;
   // A paid message is being sent in AI chat.
   bool _aiBusy = false;
-  String _aiDraft = '';
-  int _aiDraftRevision = 0;
+  // A question from Ask AI, offered to AI chat (see DraftTransfer).
+  String _aiSuggestion = '';
+  int _aiSuggestionRevision = 0;
   final List<_Msg> _messages = [];
   final TextEditingController _input = TextEditingController();
   final TextEditingController _entityFilter = TextEditingController();
@@ -490,16 +491,18 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     _scrollToLatestResponse();
   }
 
+  /// Asks an example question; words typed in the box stay there.
   void _sendExample(String question) {
     if (_typing) return;
-    _input
-      ..text = question
-      ..selection = TextSelection.collapsed(offset: question.length);
-    unawaited(_send());
+    unawaited(_send(example: question));
   }
 
-  Future<void> _send() async {
-    final String text = _input.text.trim();
+  Future<void> _send({String? example}) async {
+    final String text = example ?? _input.text.trim();
+    void clearBox() {
+      if (example == null) _input.clear();
+    }
+
     if (text.isEmpty) return;
     if (_typing) return;
 
@@ -526,7 +529,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           choice != SupportiveDistressChoice.continueWithGentleQuestion) {
         return;
       }
-      _input.clear();
+      clearBox();
       final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(
         context,
       );
@@ -546,7 +549,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     // A question really sent from Chat finishes its lesson.
     controller.recordQuestionSent();
     if (_handleLocalShortcut(text)) {
-      _input.clear();
+      clearBox();
       return;
     }
     final List<String> priorUserTurns = _messages
@@ -554,7 +557,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         .map((_Msg message) => message.text.trim())
         .where((String value) => value.isNotEmpty)
         .toList(growable: false);
-    _input.clear();
+    clearBox();
 
     _safeSetState(() => _messages.add(_Msg(text: text, isUser: true)));
     _scrollToBottom();
@@ -752,8 +755,14 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     if (_typing) return;
     ref.read(siOneTapRequestProvider.notifier).clear();
     // A message being sent in AI chat is not interrupted: the question is
-    // dropped with a plain line instead of switching away from it.
-    if (_aiBusy) {
+    // dropped with a plain line instead of switching away from it. Already
+    // on the free assistant, nothing switches and the question is answered.
+    final bool aiShown =
+        !ref.read(assistantOnDeviceModeProvider(ConversationSurface.si)) &&
+        ref.read(
+          assistantConversationSurfaceAvailableProvider(ConversationSurface.si),
+        );
+    if (_aiBusy && aiShown) {
       final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
@@ -790,44 +799,16 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     );
   }
 
-  /// Brings words typed in AI chat to the free input without replacing a
-  /// draft already there.
-  void _carryTyped(String typed) {
-    if (typed.isEmpty) return;
-    final String own = _input.text.trim();
-    if (own.isEmpty || typed.contains(own)) {
-      _input.text = typed;
-    } else if (!own.contains(typed)) {
-      _input.text = '$own${String.fromCharCode(10)}$typed';
-    }
-  }
-
-  /// Hands the question to AI chat as a draft. The person still has to look at
-  /// the price and confirm the send there.
+  /// Offers the question to AI chat. Typed words go first and the question is
+  /// added only to an empty box (DraftTransfer). The person still has to
+  /// look at the price and confirm the send there.
   void _askAiAbout(SIOneTapQuestion question) {
     final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
-    // Words typed here go to AI chat instead of the question, and leave this
-    // box; with none, the question is the draft. A typed message already in
-    // AI chat is kept there (that screen says so).
-    final String typed = _input.text.trim();
-    final String label = question.label(isSpanish: isSpanish);
     setState(() {
-      _aiDraft = typed.isEmpty ? label : typed;
-      _aiDraftRevision++;
+      _aiSuggestion = question.label(isSpanish: isSpanish);
+      _aiSuggestionRevision++;
       _aiUpdate = false;
-      _input.clear();
     });
-    if (typed.isNotEmpty) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(
-          content: Text(
-            isSpanish
-                ? 'Tus propias palabras están en el chat con IA. La pregunta "$label" no se añadió.'
-                : 'Your own words are in AI chat. The question "$label" was not added.',
-          ),
-        ),
-      );
-    }
     _chooseMode(onDevice: false);
   }
 
@@ -1002,7 +983,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       // Nothing typed or arrived for one account goes to the next.
       _input.clear();
       setState(() {
-        _aiDraft = '';
+        _aiSuggestion = '';
         _aiUpdate = false;
       });
     });
@@ -1036,20 +1017,16 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                     onBusyChanged: (bool busy) {
                       if (mounted) setState(() => _aiBusy = busy);
                     },
-                    // Words typed in AI chat go with the person when AI chat goes
-                    // out of sight; a draft already here is kept and joined.
-                    onTypedHandOver: _carryTyped,
+                    // Typed words go between the two boxes whenever AI chat is
+                    // shown or hidden, by one rule (DraftTransfer).
+                    freeBox: _input,
+                    suggestion: _aiSuggestion,
+                    suggestionRevision: _aiSuggestionRevision,
                     onQuickQuestion: (SIOneTapQuestion question) {
                       _chooseMode(onDevice: true);
                       unawaited(_askOneTap(question));
                     },
-                    incomingDraft: _aiDraft,
-                    incomingDraftRevision: _aiDraftRevision,
                     onLocalTools: () => _chooseMode(onDevice: true),
-                    onLocalToolsWithDraft: (String draft) {
-                      _carryTyped(draft);
-                      _chooseMode(onDevice: true);
-                    },
                   ),
                 ),
               ),
@@ -1174,13 +1151,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                           replyReady: _aiUpdate,
                           onChooseOnDevice: () {},
                           onChooseAi: () {
-                            setState(() {
-                              // The words travel to AI chat and leave here.
-                              _aiDraft = _input.text.trim();
-                              _aiDraftRevision++;
-                              _input.clear();
-                              _aiUpdate = false;
-                            });
+                            // AI chat takes the typed words as it is shown.
+                            setState(() => _aiUpdate = false);
                             _chooseMode(onDevice: false);
                           },
                         ),
