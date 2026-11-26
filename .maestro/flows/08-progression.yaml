@@ -12,7 +12,10 @@ tags:
       TARGET: "Patterns"
 - assertVisible: 'Patterns'
 - assertVisible: 'Future outcomes'
-# Only the Patterns screen shows this line (the tab bar also says Insights).
+# The Patterns screen's own subtitle. The Tools map row for Patterns uses the
+# same words, but that row is not on screen once Patterns is open, so seeing
+# it here means Patterns opened (the tab bar also says Insights, so that
+# label would not prove it).
 - assertVisible: 'Review your recorded history: tasks, habits and streaks'
 # The two-part switch moves to the other destination of the Insights tab.
 - tapOn: 'Future outcomes'

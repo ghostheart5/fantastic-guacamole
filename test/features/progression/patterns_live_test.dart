@@ -386,13 +386,32 @@ void main() {
 
     inView.value = true;
     final List<String> leaks = <String>[];
+    // The first frame that is neither reading nor updating must already be
+    // account B's (not only free of A's names).
+    int? firstSettled;
+    bool firstSettledIsB = false;
     for (int i = 0; i < 60; i++) {
       await tester.pump(const Duration(milliseconds: 1));
       for (final String text in <String>['Walk A', 'Tax skipped']) {
         if (find.text(text).evaluate().isNotEmpty) leaks.add('$text at $i');
       }
+      final bool settledNow =
+          find.text('Reading your records…').evaluate().isEmpty &&
+          find.text('Updating from your records…').evaluate().isEmpty;
+      if (settledNow && firstSettled == null) {
+        firstSettled = i;
+        firstSettledIsB =
+            find.text('Stretch B').evaluate().isNotEmpty &&
+            find.text('Fence skipped').evaluate().isNotEmpty;
+      }
     }
     expect(leaks, isEmpty, reason: leaks.join(' / '));
+    expect(firstSettled, isNotNull, reason: 'never settled back in view');
+    expect(
+      firstSettledIsB,
+      isTrue,
+      reason: 'first settled frame $firstSettled',
+    );
     await settle(tester);
     expect(find.text('Stretch B'), findsOneWidget);
     await unmount(tester, container);
