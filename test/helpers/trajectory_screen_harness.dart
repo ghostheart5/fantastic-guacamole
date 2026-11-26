@@ -7,13 +7,13 @@ import 'package:fantastic_guacamole/features/trajectory_engine/ui/trajectory_eng
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
-import 'package:fantastic_guacamole/state/providers/trajectory_habit_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'trajectory_test_fixture.dart';
+import 'insights_test_overrides.dart';
 
 /// The Future outcomes screen over a fixed model, as the split trajectory
 /// screen tests (assumptions, states, Spanish copy) pump it.
@@ -40,12 +40,7 @@ Widget trajectoryScreenHarness({
     ),
     // Habit lines are covered by their own tests; here they are simply
     // ready with no habits.
-    trajectoryHabitLinesProvider.overrideWithValue(
-      TrajectoryHabitLines(
-        status: TrajectoryHabitLinesStatus.ready,
-        horizonDays: 7,
-      ),
-    ),
+    ...insightsDayRolloverOverrides(),
     if (repository != null)
       trajectoryForecastLedgerRepositoryProvider.overrideWithValue(repository),
   ],

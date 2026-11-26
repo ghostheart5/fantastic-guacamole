@@ -27,7 +27,6 @@ import 'package:fantastic_guacamole/state/models/progression_state.dart';
 import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/planning_note_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
-import 'package:fantastic_guacamole/state/providers/trajectory_habit_provider.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 import 'package:fantastic_guacamole/features/creator/ui/record_library_screen.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
@@ -49,6 +48,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../helpers/insights_test_overrides.dart';
 
 void main() {
   setUp(() async {
@@ -1203,14 +1203,8 @@ Future<_RouteShellHarness> _pumpRouteShell(
         ),
       unreadNotificationsProvider.overrideWithValue(0),
       goalsProvider.overrideWith(_StaticGoals.new),
-      // Future outcomes shows habit lines; their provider keeps a timer to
-      // the next local midnight, which these navigation tests do not need.
-      trajectoryHabitLinesProvider.overrideWithValue(
-        TrajectoryHabitLines(
-          status: TrajectoryHabitLinesStatus.ready,
-          horizonDays: 7,
-        ),
-      ),
+      // Future outcomes (and its habit lines) is mounted by these tests.
+      ...insightsDayRolloverOverrides(),
       ...extraOverrides,
     ],
   );
