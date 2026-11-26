@@ -225,15 +225,19 @@ extension _ConversationCopy on _AssistantConversationScreenState {
               .map(_extraLabel),
         )
         .join(', ');
+    final sentIntent =
+        SIV2Intent.values.where((i) => i.name == data['mode']).firstOrNull ??
+        _intent;
     final lines = <String>[
       if (data['contextScope'] == 'attachedTaskOnly')
         copy(
           'Context: attached task only. Other records and emotional state are excluded.',
           'Contexto: solo la tarea adjunta. Se excluyen otros registros y el estado emocional.',
         ),
+      // The analysis the request carries, which follows the question.
       copy(
-        'Selected analysis: ${_intentLabel(_intent)}',
-        'Análisis seleccionado: ${_intentLabel(_intent)}',
+        'Analysis: ${_intentLabel(sentIntent)}',
+        'Análisis: ${_intentLabel(sentIntent)}',
       ),
       copy(
         'Sources: ${includedSources.isEmpty ? 'just this chat' : includedSources}',

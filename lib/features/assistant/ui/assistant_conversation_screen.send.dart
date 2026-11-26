@@ -104,6 +104,9 @@ extension _OneStepSend on _AssistantConversationScreenState {
         )
         .join('\n\n');
     const heading = TextStyle(fontWeight: FontWeight.bold);
+    final screen = packet.surface == ConversationSurface.planner
+        ? copy('Choose a step', 'Elegir un paso')
+        : copy('Chat', 'Chat');
     return _confirm(
       title: copy(
         'Review what AI will receive',
@@ -138,8 +141,8 @@ extension _OneStepSend on _AssistantConversationScreenState {
           Text(copy('Also sent', 'También se envía'), style: heading),
           SelectableText(
             copy(
-              'With these: identifiers for the records and the links between them (such as a task’s goal), completion flags and record types, which records matter most for your question, which sources could not be read, a version marker for your plan data, your local date and time, time zone and language.',
-              'Junto con esto: identificadores de los registros y los vínculos entre ellos (como la meta de una tarea), marcas de completado y tipos de registro, qué registros importan más para tu pregunta, qué fuentes no se pudieron leer, un marcador de versión de tus datos de plan, tu fecha y hora local, zona horaria e idioma.',
+              'With these: identifiers for the records and the links between them (such as a task’s goal), completion flags and record types, which records matter most for your question, which sources could not be read, a version marker for your plan data, your local date and time, time zone and language, and the screen it is sent from ($screen).',
+              'Junto con esto: identificadores de los registros y los vínculos entre ellos (como la meta de una tarea), marcas de completado y tipos de registro, qué registros importan más para tu pregunta, qué fuentes no se pudieron leer, un marcador de versión de tus datos de plan, tu fecha y hora local, zona horaria e idioma, y la pantalla desde la que se envía ($screen).',
             ),
           ),
           const SizedBox(height: 12),

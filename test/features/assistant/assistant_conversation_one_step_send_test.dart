@@ -687,6 +687,49 @@ void main() {
     await tester.tap(find.text('Cancel'));
     await _settle(tester);
   });
+  for (final surface in ConversationSurface.values) {
+    for (final language in ['en', 'es']) {
+      testWidgets(
+        '$language ${surface.name}: M7, M8: the preview names the analysis sent and the screen',
+        (tester) async {
+          await tester.binding.setSurfaceSize(const Size(412, 915));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          final container = _setup(_Server(), InMemorySecureStoreBackend());
+          addTearDown(() async {
+            await tester.pumpWidget(const SizedBox.shrink());
+            container.dispose();
+          });
+          await _pump(tester, container, language: language, surface: surface);
+          final es = language == 'es';
+          // The menu stays on Answer; the question asks for a comparison.
+          await _tapSend(
+            tester,
+            es ? 'Compara mis dos opciones.' : 'Compare my two options.',
+          );
+          final text = _dialogText(tester);
+          expect(
+            text,
+            contains(es ? 'Análisis: Comparar' : 'Analysis: Compare'),
+          );
+          expect(text, isNot(contains(es ? 'Responder' : 'Answer')));
+          final screen = surface == ConversationSurface.planner
+              ? (es ? 'Elegir un paso' : 'Choose a step')
+              : 'Chat';
+          expect(
+            text,
+            contains(
+              es
+                  ? 'y la pantalla desde la que se envía ($screen).'
+                  : 'and the screen it is sent from ($screen).',
+            ),
+          );
+          await tester.tap(find.text(es ? 'Cancelar' : 'Cancel'));
+          await _settle(tester);
+        },
+      );
+    }
+  }
+
   testWidgets(
     'the preview opens again after a session change for the same account',
     (tester) async {
