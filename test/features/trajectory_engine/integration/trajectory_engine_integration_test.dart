@@ -185,10 +185,12 @@ void main() {
             ? const <String>[
                 'El tiempo libre se basa en una jornada supuesta porque no hay horario de trabajo configurado.',
                 'Las tareas sin fecha cuentan en todos los periodos.',
+                'Las fechas de las metas suponen que tu tiempo libre diario se dedica a las tareas pendientes de la meta; otro trabajo puede retrasarlas.',
               ]
             : const <String>[
                 trajectoryAssumedWorkdayAssumption,
                 trajectoryUndatedTasksAssumption,
+                trajectoryGoalDateAssumption,
               ];
         for (final String text in expected) {
           expect(find.textContaining(text), findsOneWidget);

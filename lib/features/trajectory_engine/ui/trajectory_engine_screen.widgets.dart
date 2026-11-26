@@ -1234,6 +1234,11 @@ String _trajectoryGeneratedText(BuildContext context, String value) {
       trajectoryAssumedWorkdayAssumption,
       'El tiempo libre se basa en una jornada supuesta porque no hay horario de trabajo configurado.',
     ),
+    trajectoryGoalDateAssumption => journeyText(
+      context,
+      trajectoryGoalDateAssumption,
+      'Las fechas de las metas suponen que tu tiempo libre diario se dedica a las tareas pendientes de la meta; otro trabajo puede retrasarlas.',
+    ),
     trajectoryUndatedTasksAssumption => journeyText(
       context,
       trajectoryUndatedTasksAssumption,

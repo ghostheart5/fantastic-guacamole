@@ -189,8 +189,6 @@ class FutureConsequenceEngine {
       generatedAt: now,
       confidence: confidence,
       uncertainty: uncertainty,
-      workload: workload,
-      reliefMinutes: reliefMinutes,
     );
     final ProgressionConsequence progression = _progressionConsequence(
       intervention,
@@ -249,6 +247,7 @@ class FutureConsequenceEngine {
       assumptions: <String>[
         ...intervention.assumptions,
         ...baseline.assumptions,
+        if (goals.isNotEmpty) trajectoryGoalDateAssumption,
         ...baseline.personContextWarnings.map(
           (String warning) => 'Person Context constraint: $warning',
         ),
@@ -498,16 +497,24 @@ class FutureConsequenceEngine {
     required DateTime generatedAt,
     required PredictiveConfidenceProfile confidence,
     required int uncertainty,
-    required TrajectoryHorizonWorkload workload,
-    required int reliefMinutes,
   }) {
-    if (!baseline.hasObservedAvailability ||
-        baseline.availableMinutes <= baseline.occupiedMinutes ||
-        baseline.dailyFreeMinutes <= 0) {
+    if (!baseline.hasObservedAvailability || baseline.dailyFreeMinutes <= 0) {
       return const <GoalDelayProjection>[];
     }
     final int freeMinutes = baseline.dailyFreeMinutes;
-    final int horizonDays = workload.horizonDays;
+    final DateTime local = generatedAt.toLocal();
+    // Calendar days at the same local clock time: a clock change must not
+    // shift the date.
+    DateTime daysLater(int days) => DateTime(
+      local.year,
+      local.month,
+      local.day + days,
+      local.hour,
+      local.minute,
+      local.second,
+      local.millisecond,
+      local.microsecond,
+    ).toUtc();
     return baseline.goals
         .map((TrajectoryGoalNode goal) {
           final List<TrajectoryTaskNode> linked = baseline.tasks
@@ -528,45 +535,28 @@ class FutureConsequenceEngine {
               goal.linkedTaskIds.contains(subject.id)) {
             remaining = math.max(0, remaining - subject.estimatedMinutes);
           }
-          // Horizon capacity: other work in the range shares its free time
-          // evenly; past the range the goal gets the whole daily free time.
-          int otherInRange = 0;
-          for (final TrajectoryTaskNode task in baseline.tasks) {
-            if (workload.taskIds.contains(task.id) &&
-                !goal.linkedTaskIds.contains(task.id)) {
-              otherInRange += math.max(0, task.estimatedMinutes);
-            }
-          }
-          if (subject != null && !goal.linkedTaskIds.contains(subject.id)) {
-            otherInRange = math.max(0, otherInRange - reliefMinutes);
-          }
-          final int spare = freeMinutes * horizonDays - otherInRange;
-          final int workDays = remaining <= 0
-              ? 1
-              : spare >= remaining
-              ? math.max(1, (remaining * horizonDays / spare).ceil())
-              : horizonDays +
-                    ((remaining - math.max(0, spare)) / freeMinutes).ceil();
+          // Range-independent: the goal's remaining minutes at the daily free
+          // time (trajectoryGoalDateAssumption states this).
+          final int workDays = math.max(1, (remaining / freeMinutes).ceil());
           int interventionDelay = 0;
           if (intervention.type == TrajectoryInterventionType.delayTask &&
               subject != null &&
               goal.linkedTaskIds.contains(subject.id)) {
             interventionDelay = math.max(1, intervention.delay.inDays);
           }
-          final DateTime projected = generatedAt.add(
-            Duration(days: workDays + interventionDelay),
-          );
+          final int projectedDays = workDays + interventionDelay;
+          final DateTime projected = daysLater(projectedDays);
           final int intervalDays = math.max(1, (uncertainty / 8).ceil());
           final int delayDays = goal.targetDate == null
               ? 0
-              : math.max(0, projected.difference(goal.targetDate!).inDays);
+              : math.max(0, _calendarDaysBetween(goal.targetDate!, projected));
           return GoalDelayProjection(
             goalId: goal.id,
             goalTitle: goal.title,
             targetDate: goal.targetDate,
             projectedCompletion: projected,
-            lowerCompletion: projected.subtract(Duration(days: intervalDays)),
-            upperCompletion: projected.add(Duration(days: intervalDays)),
+            lowerCompletion: daysLater(projectedDays - intervalDays),
+            upperCompletion: daysLater(projectedDays + intervalDays),
             delayDays: delayDays,
             remainingMinutes: remaining,
             confidence: confidence,
@@ -578,6 +568,17 @@ class FutureConsequenceEngine {
           );
         })
         .toList(growable: false);
+  }
+
+  /// Local calendar days from the day of [from] to the day of [to].
+  static int _calendarDaysBetween(DateTime from, DateTime to) {
+    final DateTime a = from.toLocal();
+    final DateTime b = to.toLocal();
+    return DateTime.utc(
+      b.year,
+      b.month,
+      b.day,
+    ).difference(DateTime.utc(a.year, a.month, a.day)).inDays;
   }
 
   ProgressionConsequence _progressionConsequence(

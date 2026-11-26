@@ -482,33 +482,56 @@ void main() {
       expect(reduceFar.projectedPressure, keepGoing(c).projectedPressure);
     });
 
-    test('goal dates use the free time left in the range', () async {
+    test(
+      'goal dates are the same at every range and say what they assume',
+      () async {
+        final GoalEntity goal = GoalEntity(
+          id: 'goal',
+          title: 'Launch',
+          createdAt: DateTime(2026, 11, 1),
+          targetDate: day(20),
+        );
+        for (final int horizon in const <int>[7, 30, 90]) {
+          final TrajectoryComparison c = await _compare(
+            <Task>[
+              _task('goal-work', 480, goalId: 'goal'),
+              _task('other', 1440, dueDate: day(6)),
+            ],
+            now: now,
+            horizonDays: horizon,
+            goals: <GoalEntity>[goal],
+          );
+          final TrajectoryScenarioOutcome k = keepGoing(c);
+          final GoalDelayProjection g = k.goals.single;
+          // 480 goal minutes at 240 free minutes a day: 2 local days later.
+          expect(
+            g.projectedCompletion.toLocal(),
+            DateTime(2026, 12, 3, 9),
+            reason: '$horizon',
+          );
+          expect(g.delayDays, 0);
+          expect(k.assumptions, contains(trajectoryGoalDateAssumption));
+        }
+      },
+    );
+
+    test('goal dates use calendar days across a clock change (meaningful only '
+        'when the machine time zone has daylight saving)', () async {
       final GoalEntity goal = GoalEntity(
         id: 'goal',
         title: 'Launch',
-        createdAt: DateTime(2026, 11, 1),
-        targetDate: day(20),
+        createdAt: DateTime(2026, 2, 1),
       );
-      Future<int> projectedDays(int horizon) async {
-        final TrajectoryComparison c = await _compare(
-          <Task>[
-            _task('goal-work', 480, goalId: 'goal'),
-            _task('other', 1440, dueDate: day(6)),
-          ],
-          now: now,
-          horizonDays: horizon,
-          goals: <GoalEntity>[goal],
-        );
-        final GoalDelayProjection g = keepGoing(c).goals.single;
-        return g.projectedCompletion.difference(now.toUtc()).inDays;
-      }
-
-      // 7 days: 1680 free minutes less 1440 for other work leaves 240 for the
-      // goal's 480 minutes, so it runs past the range: 7 days, then the last
-      // 240 minutes at 240 a day: 8.
-      expect(await projectedDays(7), 8);
-      // 30 days: 7200 - 1440 = 5760 spare, 192 a day: 480 / 192 = 2.5, so 3.
-      expect(await projectedDays(30), 3);
+      final TrajectoryComparison c = await _compare(
+        <Task>[_task('goal-work', 480, goalId: 'goal')],
+        now: DateTime(2026, 3, 7, 9),
+        horizonDays: 7,
+        goals: <GoalEntity>[goal],
+      );
+      expect(
+        keepGoing(c).goals.single.projectedCompletion.toLocal(),
+        DateTime(2026, 3, 9, 9),
+      );
     });
   });
 
@@ -730,17 +753,17 @@ Future<TrajectoryComparison> _compare(
       lastUpdated: now,
     ),
     learning: LearningEntity(),
-    workWindows: windows != null
-        ? windows
-        : freeMinutes == null
-        ? const <WorkWindowEntity>[]
-        : <WorkWindowEntity>[
-            WorkWindowEntity(
-              id: 'window',
-              start: now,
-              end: now.add(Duration(minutes: freeMinutes)),
-            ),
-          ],
+    workWindows:
+        windows ??
+        (freeMinutes == null
+            ? const <WorkWindowEntity>[]
+            : <WorkWindowEntity>[
+                WorkWindowEntity(
+                  id: 'window',
+                  start: now,
+                  end: now.add(Duration(minutes: freeMinutes)),
+                ),
+              ]),
     now: now,
   );
   final SIStateAggregation aggregation = SIStateAggregation(

@@ -5,6 +5,10 @@ import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contra
 /// tasks count, and workload is measured against free time.
 const String trajectoryConsequenceModelVersion = 'trajectory-consequence-v4';
 
+/// Stated on every outcome that shows goal dates.
+const String trajectoryGoalDateAssumption =
+    'Goal dates assume your daily free time goes to the goal\'s remaining tasks; other work can push them later.';
+
 enum TrajectorySourceState { loading, ready, empty, partial, offline, error }
 
 enum TrajectoryRiskBand { unknown, low, watch, elevated, critical }
