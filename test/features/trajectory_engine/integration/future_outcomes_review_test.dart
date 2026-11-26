@@ -443,22 +443,15 @@ void main() {
         await settleFutureOutcomes(tester);
 
         await _choose(tester, es ? 'Aplazar el hito' : 'Delay the milestone');
-        // The edit dialog's priority menu already overflows at 2x on 320 dp
-        // for every caller (Today included); see the task report. Anything
-        // else overflowing, the note included, fails here.
-        final List<String> overflows = <String>[];
-        final void Function(FlutterErrorDetails)? previous =
-            FlutterError.onError;
-        FlutterError.onError = (FlutterErrorDetails details) =>
-            overflows.add(details.toString());
-        try {
-          await _review(tester, es ? 'Editar esta tarea' : 'Edit this task');
-        } finally {
-          FlutterError.onError = previous;
-        }
-        for (final String overflow in overflows) {
-          expect(overflow, contains('timeline-task-priority-field'));
-        }
+        // Nothing in the edit dialog overflows, the priority menu included.
+        await _review(tester, es ? 'Editar esta tarea' : 'Edit this task');
+        expect(tester.takeException(), isNull);
+        expect(find.byType(AlertDialog), findsOneWidget);
+        final Rect priority = tester.getRect(
+          find.byKey(const Key('timeline-task-priority-field')),
+        );
+        expect(priority.left, greaterThanOrEqualTo(0));
+        expect(priority.right, lessThanOrEqualTo(320));
         final Finder note = find.text(
           es
               ? 'Desde Resultados futuros: aplazar 2 días'

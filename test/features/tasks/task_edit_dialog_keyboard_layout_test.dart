@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _titleKey = Key('timeline-task-title-field');
@@ -173,6 +174,68 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  // Every caller (Today, My plan, Schedule, Future outcomes) opens this
+  // dialog: at text scale 2.0 on 320 dp nothing overflows, the priority menu
+  // included.
+  for (final Locale locale in const <Locale>[Locale('en'), Locale('es')]) {
+    testWidgets('${locale.languageCode}: no overflow at text scale 2.0 on '
+        '320 dp', (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final task = _task();
+      await tester.pumpWidget(
+        MaterialApp(
+          // The default theme draws with the test font, whose wide glyphs
+          // show an overflow the app's narrower font could still hide.
+          locale: locale,
+          supportedLocales: const <Locale>[Locale('en'), Locale('es')],
+          localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: TextButton(
+                  onPressed: () => showTaskEditDialog(
+                    context: context,
+                    editable: task,
+                    goals: <GoalEntity>[
+                      GoalEntity(
+                        id: task.goalId!,
+                        title: 'Linked goal',
+                        createdAt: task.createdAt,
+                      ),
+                    ],
+                  ),
+                  child: const Text('Open task editor'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open task editor'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      final priority = find.byKey(_priorityKey);
+      await tester.ensureVisible(priority);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      final Rect rect = tester.getRect(priority);
+      expect(rect.left, greaterThanOrEqualTo(0));
+      expect(rect.right, lessThanOrEqualTo(320));
+    });
+  }
 }
 
 TaskEntity _task() => TaskEntity(

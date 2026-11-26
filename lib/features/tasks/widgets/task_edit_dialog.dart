@@ -112,6 +112,9 @@ Future<TaskEditDraft?> showTaskEditDialog({
               DropdownButtonFormField<int>(
                 key: const Key('timeline-task-priority-field'),
                 initialValue: priority,
+                // Fills the dialog's width so a long label at large text
+                // sizes is cut short instead of overflowing.
+                isExpanded: true,
                 decoration: InputDecoration(
                   labelText: journeyText(context, 'Priority', 'Prioridad'),
                 ),
