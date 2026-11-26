@@ -2029,6 +2029,70 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'N1: Clear conversation while a re-collect starts leaves Chat usable and never says nothing was charged',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = InMemorySecureStoreBackend();
+      await storeEarlierRunRequest(backend, ConversationSurface.si);
+      final paid = <Map<String, dynamic>>[];
+      final never = Completer<_Response>();
+      final container = _setup((body) async {
+        if (body['quoteOnly'] == true) return _quote(body);
+        paid.add(body);
+        if (paid.length == 1) return stillReserved(body);
+        return never.future;
+      }, backend);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pumpScreen(tester, container, ConversationSurface.si);
+      await pumpSome(tester);
+      expect(paid, hasLength(1));
+      final privacy = find.byKey(const Key('conversation-history-privacy'));
+      await tester.scrollUntilVisible(
+        privacy,
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.ensureVisible(privacy);
+      await tester.pump();
+      await tester.tap(find.text('Chat history & privacy'));
+      await tester.pump(const Duration(milliseconds: 400));
+      final clear = tester.widget<TextButton>(
+        find.byKey(const Key('conversation-clear-history')),
+      );
+      clear.onPressed!();
+      await tester.pump(const Duration(milliseconds: 400));
+      // The re-collect starts while the dialog is open.
+      await tester.pump(const Duration(seconds: 6));
+      await pumpSome(tester);
+      expect(paid, hasLength(2));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Clear conversation'),
+        ),
+      );
+      await pumpSome(tester);
+      await tester.pump(const Duration(seconds: 6));
+      await pumpSome(tester);
+      expect(find.text('Preparing your response…'), findsNothing);
+      expect(find.byKey(const Key('conversation-stop-waiting')), findsNothing);
+      expect(find.textContaining('Nothing was charged'), findsNothing);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('conversation-input')))
+            .enabled,
+        isTrue,
+      );
+      expect(paid, hasLength(2), reason: 'Nothing more is collected');
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 enum _Hold { read, write }

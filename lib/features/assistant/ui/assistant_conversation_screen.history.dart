@@ -174,6 +174,9 @@ extension _StoredChat on _AssistantConversationScreenState {
       ),
     );
     if (confirmed != true || !mounted || epoch != _historyEpoch) return;
+    // A re-collect of the kept request stops here (it may have started while
+    // the dialog was open; see the reset below).
+    _reservedRetry?.cancel();
     final clearEpoch = ++_historyEpoch;
     _updateHistory(() {
       _historyLoading = true;
@@ -193,6 +196,13 @@ extension _StoredChat on _AssistantConversationScreenState {
         _attachedTaskId = null;
         _energy = null;
         _generation++;
+        // A send in flight is no longer current, so its own reset is
+        // skipped: end the wait here, and make it a later operation so Stop
+        // waiting can never speak for it.
+        _operation++;
+        _busy = false;
+        _waitIndicatorDismissed = false;
+        _recoveringRequestId = null;
         _storedHistoryRevision = revision;
         _historyReady = true;
         _historySaveFailed = false;
