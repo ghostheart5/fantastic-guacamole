@@ -248,9 +248,10 @@ class TrajectoryBaseline {
   /// stays the next-7-days value (Home reads it).
   final int pressureInHorizon;
 
-  /// Free minutes in a day: planner availability minus occupied time. When
-  /// [dailyFreeOrigin] is not observed it comes from the planner's assumed
-  /// workday and [assumptions] say so.
+  /// Free minutes in a day: one day's working window (the live provider does
+  /// not subtract time held by tasks that are themselves counted as work).
+  /// When [dailyFreeOrigin] is not observed it comes from the planner's
+  /// assumed workday and [assumptions] say so.
   final int dailyFreeMinutes;
   final PredictiveEvidenceOrigin dailyFreeOrigin;
 

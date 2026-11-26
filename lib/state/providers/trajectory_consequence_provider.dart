@@ -341,6 +341,16 @@ TrajectoryBaseline _baseline({
       noContextUnscheduled + (noContextFree - governedFree);
   final PredictiveEvidenceOrigin freeOrigin =
       decision.plan.capacity.windowOrigin;
+  // Daily free time for the forecast: one day's working window. Occupied
+  // time is not subtracted: the planner's blocks come from the tasks' own
+  // schedules, and those tasks are already counted as work. The value does
+  // not change with the time of day (the assumed workday is always one full
+  // 09:00-17:00 day, configured windows count whole).
+  final int dailyWindow =
+      (noContextAvailable / decision.plan.capacity.windowDays).round();
+  final int dailyFree = personContext.capacityCapMinutes == null
+      ? dailyWindow
+      : dailyWindow.clamp(0, personContext.capacityCapMinutes!);
   final TrajectoryHorizonWorkload inRange =
       FutureConsequenceEngine.horizonWorkload(
         tasks: tasks,
@@ -358,7 +368,7 @@ TrajectoryBaseline _baseline({
         );
   final Map<String, String> revisions = <String, String>{
     'horizon': '$horizonDays',
-    'daily_free': '$governedFree:${freeOrigin.name}',
+    'daily_free': '$dailyFree:${freeOrigin.name}',
     'tasks': '${tasks.length}',
     'goals': '${goals.length}',
     'timeline': '${timeline.length}',
@@ -387,7 +397,7 @@ TrajectoryBaseline _baseline({
     // shared with other systems and is deliberately not used here.
     pressure: FutureConsequenceEngine.capacityLoad(
       requiredMinutes: nextSevenDays.requiredMinutes,
-      dailyFreeMinutes: governedFree,
+      dailyFreeMinutes: dailyFree,
       days: 7,
     ),
     energy: (aggregation.siState.energy * 100).round().clamp(0, 100),
@@ -420,10 +430,10 @@ TrajectoryBaseline _baseline({
     horizonDays: horizonDays,
     pressureInHorizon: FutureConsequenceEngine.capacityLoad(
       requiredMinutes: inRange.requiredMinutes,
-      dailyFreeMinutes: governedFree,
+      dailyFreeMinutes: dailyFree,
       days: horizonDays,
     ),
-    dailyFreeMinutes: governedFree,
+    dailyFreeMinutes: dailyFree,
     dailyFreeOrigin: freeOrigin,
     tasksInHorizon: inRange.taskCount,
     requiredMinutesInHorizon: inRange.requiredMinutes,

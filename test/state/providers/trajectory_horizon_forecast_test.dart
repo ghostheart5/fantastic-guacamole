@@ -261,6 +261,110 @@ void main() {
       expect(b.pressure, 100);
     });
 
+    test('a task scheduled today is not also taken out of free time', () async {
+      final TrajectoryBaseline loose = (await _compare(
+        <Task>[_task('t', 240, dueDate: day(3))],
+        now: now,
+        horizonDays: 7,
+      )).baseline;
+      final TrajectoryBaseline scheduled = (await _compare(
+        <Task>[
+          _task(
+            't',
+            240,
+            dueDate: day(3),
+            scheduledFor: DateTime(2026, 12, 1, 10),
+          ),
+        ],
+        now: now,
+        horizonDays: 7,
+      )).baseline;
+      expect(scheduled.dailyFreeMinutes, loose.dailyFreeMinutes);
+      expect(scheduled.dailyFreeMinutes, 240);
+      expect(scheduled.pressure, loose.pressure);
+      expect(scheduled.pressureInHorizon, loose.pressureInHorizon);
+    });
+
+    test('the same plan gives the same load at 09:00 and at 18:00', () async {
+      List<Task> plan() => <Task>[
+        _task(
+          't',
+          240,
+          dueDate: day(3),
+          scheduledFor: DateTime(2026, 12, 1, 10),
+        ),
+        _task('u', 60),
+      ];
+      for (final int? free in <int?>[null, 240]) {
+        final List<WorkWindowEntity>? windows = free == null
+            ? null
+            : <WorkWindowEntity>[
+                WorkWindowEntity(
+                  id: 'day',
+                  start: DateTime(2026, 12, 1, 9),
+                  end: DateTime(2026, 12, 1, 13),
+                ),
+              ];
+        final TrajectoryBaseline morning = (await _compare(
+          plan(),
+          now: DateTime(2026, 12, 1, 9),
+          horizonDays: 7,
+          freeMinutes: free,
+          windows: windows,
+        )).baseline;
+        final TrajectoryBaseline evening = (await _compare(
+          plan(),
+          now: DateTime(2026, 12, 1, 18),
+          horizonDays: 7,
+          freeMinutes: free,
+          windows: windows,
+        )).baseline;
+        expect(morning.dailyFreeMinutes, free ?? 480, reason: '$free');
+        expect(evening.dailyFreeMinutes, morning.dailyFreeMinutes);
+        expect(evening.pressure, morning.pressure, reason: '$free');
+      }
+    });
+
+    test('configured availability over several days gives one day', () async {
+      final TrajectoryBaseline b = (await _compare(
+        <Task>[_task('t', 60, dueDate: day(2))],
+        now: now,
+        horizonDays: 7,
+        windows: <WorkWindowEntity>[
+          WorkWindowEntity(
+            id: 'mon-am',
+            start: DateTime(2026, 12, 1, 9),
+            end: DateTime(2026, 12, 1, 11),
+          ),
+          WorkWindowEntity(
+            id: 'mon-pm',
+            start: DateTime(2026, 12, 1, 14),
+            end: DateTime(2026, 12, 1, 16),
+          ),
+          WorkWindowEntity(
+            id: 'tue',
+            start: DateTime(2026, 12, 2, 9),
+            end: DateTime(2026, 12, 2, 13),
+          ),
+        ],
+      )).baseline;
+      expect(b.dailyFreeOrigin, PredictiveEvidenceOrigin.observed);
+      // 480 configured minutes over two days: 240 a day.
+      expect(b.dailyFreeMinutes, 240);
+    });
+
+    test('one long task scheduled today does not read as full', () async {
+      final TrajectoryBaseline b = (await _compare(
+        <Task>[_task('long', 480, dueDate: day(1), scheduledFor: now)],
+        now: now,
+        horizonDays: 7,
+        freeMinutes: null,
+      )).baseline;
+      // 480 / (480 x 7) = 14%, not 100.
+      expect(b.dailyFreeMinutes, 480);
+      expect(b.pressure, 14);
+    });
+
     test('no work is 0', () async {
       final TrajectoryBaseline b = (await _compare(
         <Task>[],
@@ -614,6 +718,7 @@ Future<TrajectoryComparison> _compare(
   required int horizonDays,
   int completed7d = 7,
   int? freeMinutes = 240,
+  List<WorkWindowEntity>? windows,
   List<GoalEntity> goals = const <GoalEntity>[],
 }) async {
   final DecisionRecommendation decision = const DecisionEngine().recommend(
@@ -625,7 +730,9 @@ Future<TrajectoryComparison> _compare(
       lastUpdated: now,
     ),
     learning: LearningEntity(),
-    workWindows: freeMinutes == null
+    workWindows: windows != null
+        ? windows
+        : freeMinutes == null
         ? const <WorkWindowEntity>[]
         : <WorkWindowEntity>[
             WorkWindowEntity(

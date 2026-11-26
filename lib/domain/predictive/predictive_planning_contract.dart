@@ -126,9 +126,14 @@ class PlanningCapacityAssessment {
     required this.windowOrigin,
     required this.blockOrigin,
     required this.assumptions,
+    this.windowDays = 1,
   });
 
   final int availableMinutes;
+
+  /// How many local calendar days the valid windows start on (at least 1),
+  /// so availableMinutes / windowDays is one day's working time.
+  final int windowDays;
   final int occupiedMinutes;
   final int requiredMinutes;
   final int unscheduledMinutes;
@@ -165,8 +170,17 @@ class PlanningCapacityAssessment {
       (int total, Duration item) => total + item.inMinutes,
     );
     final int usable = (available - occupied).clamp(0, 1 << 30);
+    final int days = windows
+        .where((WorkWindowEntity item) => item.isValidRange)
+        .map((WorkWindowEntity item) {
+          final DateTime local = item.start.toLocal();
+          return DateTime(local.year, local.month, local.day);
+        })
+        .toSet()
+        .length;
     return PlanningCapacityAssessment(
       availableMinutes: available,
+      windowDays: days < 1 ? 1 : days,
       occupiedMinutes: occupied,
       requiredMinutes: required,
       unscheduledMinutes: unscheduled,
