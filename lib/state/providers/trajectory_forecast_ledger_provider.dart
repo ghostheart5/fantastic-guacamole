@@ -77,6 +77,7 @@ int Function(int horizonDays) trajectoryRangeWorkload(
         completedLast7Days: baseline.completedInWindow,
       ).requiredMinutes,
       dailyFreeMinutes: baseline.dailyFreeMinutes,
+      firstDayFreeMinutes: baseline.firstDayFreeMinutes,
       days: days,
     );
 

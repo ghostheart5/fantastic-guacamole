@@ -85,19 +85,56 @@ class FutureConsequenceEngine {
     );
   }
 
+  /// Free minutes over [days] days (at least one) of [dailyFreeMinutes]. A
+  /// "capacity right now" limit, [firstDayFreeMinutes], applies to the first
+  /// day only: min(daily, limit) + daily × (days − 1). Without a limit this
+  /// is daily × days. The provider and the engine both use this.
+  static int freeMinutesOver({
+    required int dailyFreeMinutes,
+    int? firstDayFreeMinutes,
+    required int days,
+  }) {
+    final int daily = math.max(0, dailyFreeMinutes);
+    final int first = firstDayFreeMinutes == null
+        ? daily
+        : firstDayFreeMinutes.clamp(0, daily);
+    return first + daily * (math.max(1, days) - 1);
+  }
+
   /// The share of free time (0-100) that [requiredMinutes] need over [days]
-  /// days of [dailyFreeMinutes]: 0 without work, 100 with work and no free
-  /// time.
+  /// days of [dailyFreeMinutes] (the first day limited to
+  /// [firstDayFreeMinutes] when given): 0 without work, 100 with work and no
+  /// free time.
   static int capacityLoad({
     required int requiredMinutes,
     required int dailyFreeMinutes,
     required int days,
+    int? firstDayFreeMinutes,
   }) {
     if (requiredMinutes <= 0) return 0;
-    if (dailyFreeMinutes <= 0) return 100;
-    return (100 * requiredMinutes / (dailyFreeMinutes * math.max(1, days)))
-        .round()
-        .clamp(0, 100);
+    final int free = freeMinutesOver(
+      dailyFreeMinutes: dailyFreeMinutes,
+      firstDayFreeMinutes: firstDayFreeMinutes,
+      days: days,
+    );
+    if (free <= 0) return 100;
+    return (100 * requiredMinutes / free).round().clamp(0, 100);
+  }
+
+  /// Local days needed to work through [minutes] at [dailyFreeMinutes] a
+  /// day, the first day limited to [firstDayFreeMinutes]: at least one.
+  static int workDaysFor({
+    required int minutes,
+    required int dailyFreeMinutes,
+    int? firstDayFreeMinutes,
+  }) {
+    final int first = freeMinutesOver(
+      dailyFreeMinutes: dailyFreeMinutes,
+      firstDayFreeMinutes: firstDayFreeMinutes,
+      days: 1,
+    );
+    if (minutes <= first) return 1;
+    return 1 + ((minutes - first) / dailyFreeMinutes).ceil();
   }
 
   TrajectoryComparison compare({
@@ -157,19 +194,26 @@ class FutureConsequenceEngine {
     final int keepGoingPressure = capacityLoad(
       requiredMinutes: workload.requiredMinutes,
       dailyFreeMinutes: baseline.dailyFreeMinutes,
+      firstDayFreeMinutes: baseline.firstDayFreeMinutes,
       days: horizonDays,
     );
     final int projectedPressure = capacityLoad(
       requiredMinutes: workload.requiredMinutes - reliefMinutes,
       dailyFreeMinutes: baseline.dailyFreeMinutes,
+      firstDayFreeMinutes: baseline.firstDayFreeMinutes,
+      days: horizonDays,
+    );
+    final int freeInRange = freeMinutesOver(
+      dailyFreeMinutes: baseline.dailyFreeMinutes,
+      firstDayFreeMinutes: baseline.firstDayFreeMinutes,
       days: horizonDays,
     );
     // Options are ranked against keeping going over the same range, on the
     // unrounded share of free time, so removing a typical task keeps its
     // advantage at long ranges where the shown whole percent rounds it away.
-    final double pressureDelta = baseline.dailyFreeMinutes <= 0
+    final double pressureDelta = freeInRange <= 0
         ? (projectedPressure - keepGoingPressure).toDouble()
-        : -100 * reliefMinutes / (baseline.dailyFreeMinutes * horizonDays);
+        : -100 * reliefMinutes / freeInRange;
     // Recorded forecast accuracy, when supplied, widens or narrows the range
     // within the engine's bounds and sets the calibration state.
     final int baseUncertainty = _uncertainty(baseline, horizonDays);
@@ -249,6 +293,8 @@ class FutureConsequenceEngine {
         'subject=${subject?.id ?? 'portfolio'}',
         'horizon_days=$horizonDays',
         'daily_free_minutes=${baseline.dailyFreeMinutes}',
+        if (baseline.firstDayFreeMinutes != baseline.dailyFreeMinutes)
+          'first_day_free_minutes=${baseline.firstDayFreeMinutes}',
         'daily_free_origin=${baseline.dailyFreeOrigin.name}',
         'tasks_in_horizon=${workload.taskCount}',
         'required_minutes_in_horizon=${workload.requiredMinutes}',
@@ -518,7 +564,6 @@ class FutureConsequenceEngine {
     if (!baseline.hasObservedAvailability || baseline.dailyFreeMinutes <= 0) {
       return const <GoalDelayProjection>[];
     }
-    final int freeMinutes = baseline.dailyFreeMinutes;
     final DateTime local = generatedAt.toLocal();
     // Calendar days at the same local clock time: a clock change must not
     // shift the date.
@@ -553,8 +598,13 @@ class FutureConsequenceEngine {
             remaining = math.max(0, remaining - subject.estimatedMinutes);
           }
           // Range-independent: the goal's remaining minutes at the daily free
-          // time (trajectoryGoalDateAssumption states this).
-          final int workDays = math.max(1, (remaining / freeMinutes).ceil());
+          // time (trajectoryGoalDateAssumption states this); a "capacity
+          // right now" limit holds back the first day only.
+          final int workDays = workDaysFor(
+            minutes: remaining,
+            dailyFreeMinutes: baseline.dailyFreeMinutes,
+            firstDayFreeMinutes: baseline.firstDayFreeMinutes,
+          );
           int interventionDelay = 0;
           if (intervention.type == TrajectoryInterventionType.delayTask &&
               subject != null &&

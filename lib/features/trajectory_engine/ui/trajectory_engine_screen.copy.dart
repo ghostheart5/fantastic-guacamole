@@ -165,12 +165,27 @@ List<String> _trajectoryAssumptionTexts(
 String _reportedTrajectoryAssumption(String warning) =>
     'User-reported Person Context: $warning It constrains this scenario but is not treated as identity or a guaranteed outcome.';
 
+final RegExp _freshCapacityWarning = RegExp(
+  r'^Fresh capacity limited this decision to ([0-9]+) minutes\.$',
+);
+
 // Only call for warnings matched against the structured baseline list. Task
 // labels remain verbatim; the producer-owned framing is localized separately.
 String _trajectorySharedInformationWarningText(
   BuildContext context,
   String warning,
 ) {
+  // The forecast applies a "capacity right now" limit to today only (the
+  // first day of the range), so the sentence says that in both languages.
+  final RegExpMatch? capacity = _freshCapacityWarning.firstMatch(warning);
+  if (capacity != null) {
+    final String minutes = capacity.group(1)!;
+    return journeyText(
+      context,
+      'Your capacity right now limits today to $minutes minutes. Later days in the range use your usual free time.',
+      'Tu capacidad actual limita hoy a $minutes minutos. Los demás días del periodo usan tu tiempo libre habitual.',
+    );
+  }
   if (Localizations.localeOf(context).languageCode != 'es') return warning;
   final templates = <(RegExp, String Function(String))>[
     (
@@ -183,11 +198,6 @@ String _trajectorySharedInformationWarningText(
     (
       RegExp(r'^Explicit boundary excluded (.+) from this decision\.$'),
       (labels) => 'El límite explícito excluyó $labels de esta decisión.',
-    ),
-    (
-      RegExp(r'^Fresh capacity limited this decision to ([0-9]+) minutes\.$'),
-      (minutes) =>
-          'La capacidad reciente limitó esta decisión a $minutes minutos.',
     ),
     (
       RegExp(r'^Scheduled commitment protected (.+) during conflict checks\.$'),

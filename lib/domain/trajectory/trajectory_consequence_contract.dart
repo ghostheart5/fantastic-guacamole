@@ -230,6 +230,7 @@ class TrajectoryBaseline {
     this.availabilityOrigin = PredictiveEvidenceOrigin.observed,
     this.horizonDays = 7,
     int? dailyFreeMinutes,
+    int? firstDayFreeMinutes,
     PredictiveEvidenceOrigin? dailyFreeOrigin,
     int? tasksInHorizon,
     int? requiredMinutesInHorizon,
@@ -238,6 +239,10 @@ class TrajectoryBaseline {
     int? pressureInHorizon,
   }) : pressureInHorizon = pressureInHorizon ?? pressure,
        dailyFreeMinutes =
+           dailyFreeMinutes ??
+           (availableMinutes - occupiedMinutes).clamp(0, 1 << 30),
+       firstDayFreeMinutes =
+           firstDayFreeMinutes ??
            dailyFreeMinutes ??
            (availableMinutes - occupiedMinutes).clamp(0, 1 << 30),
        dailyFreeOrigin = dailyFreeOrigin ?? availabilityOrigin,
@@ -312,6 +317,11 @@ class TrajectoryBaseline {
   /// When [dailyFreeOrigin] is not observed it comes from the planner's
   /// assumed workday and [assumptions] say so.
   final int dailyFreeMinutes;
+
+  /// Free minutes on the first day of the range: [dailyFreeMinutes], or less
+  /// when a fresh "capacity right now" limit was shared. The limit applies to
+  /// today only; every later day counts [dailyFreeMinutes].
+  final int firstDayFreeMinutes;
   final PredictiveEvidenceOrigin dailyFreeOrigin;
 
   /// Active tasks inside the chosen range (due or scheduled within it,

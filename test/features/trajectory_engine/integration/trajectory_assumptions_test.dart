@@ -292,8 +292,16 @@ void main() {
           const spanishWarnings = <String>[
             'La prioridad actual coincide con $labels y solo puede desempatar opciones de valoración similar.',
             'El límite explícito excluyó $labels de esta decisión.',
-            'La capacidad reciente limitó esta decisión a 35 minutos.',
+            'Tu capacidad actual limita hoy a 35 minutos. Los demás días del periodo usan tu tiempo libre habitual.',
             'El compromiso programado protegió $labels al comprobar conflictos.',
+          ];
+          // The capacity limit is worded as the forecast applies it: today
+          // only.
+          final englishWarnings = <String>[
+            for (final warning in warnings)
+              warning.startsWith('Fresh capacity')
+                  ? 'Your capacity right now limits today to 35 minutes. Later days in the range use your usual free time.'
+                  : warning,
           ];
           const unknown =
               'Explicit boundary excluded "Texto mío" from this decision.';
@@ -359,7 +367,7 @@ void main() {
           for (var index = 0; index < warnings.length; index++) {
             final expectedWarning = language == 'es'
                 ? spanishWarnings[index]
-                : warnings[index];
+                : englishWarnings[index];
             final expected =
                 '$prefix$expectedWarning${paired ? qualifier : ''}';
             expect(
@@ -404,8 +412,14 @@ void main() {
       const spanishWarnings = <String>[
         'La prioridad actual coincide con $labels y solo puede desempatar opciones de valoración similar.',
         'El límite explícito excluyó $labels de esta decisión.',
-        'La capacidad reciente limitó esta decisión a 35 minutos.',
+        'Tu capacidad actual limita hoy a 35 minutos. Los demás días del periodo usan tu tiempo libre habitual.',
         'El compromiso programado protegió $labels al comprobar conflictos.',
+      ];
+      final englishWarnings = <String>[
+        for (final warning in warnings)
+          warning.startsWith('Fresh capacity')
+              ? 'Your capacity right now limits today to 35 minutes. Later days in the range use your usual free time.'
+              : warning,
       ];
       const unknown =
           'User note: $labels remains outside known warning templates.';
@@ -452,7 +466,7 @@ void main() {
       for (var index = 0; index < warnings.length; index++) {
         expect(
           find.text(
-            '• ${language == 'es' ? spanishWarnings[index] : warnings[index]}',
+            '• ${language == 'es' ? spanishWarnings[index] : englishWarnings[index]}',
           ),
           findsOneWidget,
         );

@@ -4,16 +4,19 @@ import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/learning_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/person_context.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/work_window_entity.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
+import 'package:fantastic_guacamole/domain/policies/person_context_behavior_policy.dart';
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
 import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+import 'package:fantastic_guacamole/engine/trajectory/future_consequence_engine.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/models/progression_state.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
@@ -556,6 +559,167 @@ void main() {
     });
   });
 
+  group('a "capacity right now" limit applies to today only', () {
+    TrajectoryScenarioOutcome keepGoing(TrajectoryComparison c) =>
+        c.outcomes.firstWhere(
+          (TrajectoryScenarioOutcome o) =>
+              o.intervention.type == TrajectoryInterventionType.maintainCourse,
+        );
+    PersonContextView capacity(int minutes) => PersonContextView(
+      accountScopeId: AccountStorageScope.authenticated(
+        'test-account',
+      ).v2Namespace!,
+      surface: PersonContextSurface.trajectory,
+      purposes: trajectoryPersonContextPurposes,
+      observedAt: now.toUtc(),
+      signals: <PersonContextSignal>[
+        PersonContextSignal(
+          id: 'capacity',
+          kind: PersonContextKind.presentCapacity,
+          value: '$minutes minutes available today',
+          source: PersonContextSource.userAuthored,
+          consent: PersonContextConsent.granted,
+          consentedAt: now.toUtc().subtract(const Duration(minutes: 5)),
+          purpose: PersonContextBehaviorPolicy.ruleFor(
+            PersonContextKind.presentCapacity,
+          ).purpose,
+          surfaceScopes: const <PersonContextSurface>{
+            PersonContextSurface.trajectory,
+          },
+          recordedAt: now.toUtc().subtract(const Duration(minutes: 5)),
+          freshUntil: now.toUtc().add(const Duration(hours: 2)),
+          expiresAt: now.toUtc().add(const Duration(days: 1)),
+          exportBehavior: PersonContextExportBehavior.include,
+          deletionBehavior: PersonContextDeletionBehavior.userRemovable,
+        ),
+      ],
+      unknownKinds: const <PersonContextKind>{},
+    );
+    List<Task> tenHalfHours() => <Task>[
+      for (int i = 0; i < 10; i++) _task('half-$i', 30),
+    ];
+
+    test('shared formula: the first day is limited, the rest are whole', () {
+      expect(
+        FutureConsequenceEngine.freeMinutesOver(
+          dailyFreeMinutes: 480,
+          firstDayFreeMinutes: 30,
+          days: 7,
+        ),
+        30 + 480 * 6,
+      );
+      expect(
+        FutureConsequenceEngine.freeMinutesOver(dailyFreeMinutes: 480, days: 7),
+        480 * 7,
+      );
+      // A limit above the day's window changes nothing.
+      expect(
+        FutureConsequenceEngine.freeMinutesOver(
+          dailyFreeMinutes: 480,
+          firstDayFreeMinutes: 600,
+          days: 30,
+        ),
+        480 * 30,
+      );
+    });
+
+    test('ten 30-minute tasks, 8-hour day, 30-minute limit: 7, 30 and 90 '
+        'days', () async {
+      final Map<int, int> limited = <int, int>{};
+      final Map<int, int> unlimited = <int, int>{};
+      for (final int days in const <int>[7, 30, 90]) {
+        final TrajectoryComparison capped = await _compare(
+          tenHalfHours(),
+          now: now,
+          horizonDays: days,
+          freeMinutes: 480,
+          personContext: capacity(30),
+        );
+        final TrajectoryComparison free = await _compare(
+          tenHalfHours(),
+          now: now,
+          horizonDays: days,
+          freeMinutes: 480,
+        );
+        expect(capped.baseline.dailyFreeMinutes, 480, reason: '$days');
+        expect(capped.baseline.firstDayFreeMinutes, 30, reason: '$days');
+        expect(keepGoing(capped).projectedPressure, isNot(100));
+        expect(
+          keepGoing(capped).projectedPressure,
+          capped.baseline.pressureInHorizon,
+        );
+        limited[days] = capped.baseline.pressureInHorizon;
+        unlimited[days] = free.baseline.pressureInHorizon;
+        if (days == 7) {
+          // Home's next-7-days figure uses the same rule.
+          expect(capped.baseline.pressure, 10);
+          expect(free.baseline.pressure, 9);
+        }
+      }
+      // 300 / (30 + 480 x 6) = 10.3%; 300 / (30 + 480 x 29) = 2.2%;
+      // 300 / (30 + 480 x 89) = 0.7%.
+      expect(limited, <int, int>{7: 10, 30: 2, 90: 1});
+      // With no limit nothing changes: 300 / (480 x 7) = 8.9% and so on.
+      expect(unlimited, <int, int>{7: 9, 30: 2, 90: 1});
+    });
+
+    test('each option\'s workload uses the same rule', () async {
+      final TrajectoryComparison c = await _compare(
+        <Task>[
+          _task('big', 600, dueDate: day(2), priority: 5),
+          _task('small', 240, dueDate: day(3), priority: 1),
+        ],
+        now: now,
+        horizonDays: 7,
+        freeMinutes: 480,
+        personContext: capacity(30),
+      );
+      final TrajectoryScenarioOutcome reduce = c.outcomes.firstWhere(
+        (TrajectoryScenarioOutcome o) =>
+            o.intervention.type == TrajectoryInterventionType.reduceScope,
+      );
+      final int minutes = reduce.intervention.subjectId == 'big' ? 600 : 240;
+      // 840 / (30 + 480 x 6) = 28.9% before (the old rule gave 840 / 210 =
+      // 100%); the option takes its task's minutes out of the same free time.
+      expect(keepGoing(c).projectedPressure, 29);
+      expect(reduce.projectedPressure, ((840 - minutes) * 100 / 2910).round());
+    });
+
+    test('goal dates: the limit holds back today only', () async {
+      final GoalEntity goal = GoalEntity(
+        id: 'goal',
+        title: 'Launch',
+        createdAt: DateTime(2026, 11, 1),
+        targetDate: day(20),
+      );
+      final TrajectoryComparison capped = await _compare(
+        <Task>[_task('goal-work', 480, goalId: 'goal')],
+        now: now,
+        horizonDays: 30,
+        freeMinutes: 480,
+        goals: <GoalEntity>[goal],
+        personContext: capacity(30),
+      );
+      final TrajectoryComparison free = await _compare(
+        <Task>[_task('goal-work', 480, goalId: 'goal')],
+        now: now,
+        horizonDays: 30,
+        freeMinutes: 480,
+        goals: <GoalEntity>[goal],
+      );
+      // Without the limit 480 minutes fit in one day; with 30 minutes today
+      // the remaining 450 need one more day (not 480 / 30 = 16 days).
+      expect(
+        keepGoing(free).goals.single.projectedCompletion.toLocal(),
+        DateTime(2026, 12, 2, 9),
+      );
+      expect(
+        keepGoing(capped).goals.single.projectedCompletion.toLocal(),
+        DateTime(2026, 12, 3, 9),
+      );
+    });
+  });
+
   group('availability not observed', () {
     test('uses the assumed workday, says so, and still withholds', () async {
       final GoalEntity goal = GoalEntity(
@@ -764,6 +928,7 @@ Future<TrajectoryComparison> _compare(
   int? freeMinutes = 240,
   List<WorkWindowEntity>? windows,
   List<GoalEntity> goals = const <GoalEntity>[],
+  PersonContextView? personContext,
 }) async {
   final DecisionRecommendation decision = const DecisionEngine().recommend(
     inputs: PlannerInputAdapter.fromLegacyTasks(tasks),
@@ -838,7 +1003,7 @@ Future<TrajectoryComparison> _compare(
       ),
       personContextForSurfaceProvider(
         trajectoryPersonContextRequest,
-      ).overrideWithValue(null),
+      ).overrideWithValue(personContext),
       trajectoryClockProvider.overrideWithValue(() => now.toUtc()),
     ],
   );

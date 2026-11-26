@@ -358,7 +358,11 @@ TrajectoryBaseline _baseline({
   // 09:00-17:00 day, configured windows count whole).
   final int dailyWindow =
       (noContextAvailable / decision.plan.capacity.windowDays).round();
-  final int dailyFree = personContext.capacityCapMinutes == null
+  // A shared "capacity right now" limit holds back today only: the first day
+  // of every range counts min(window, limit), later days the whole window
+  // (FutureConsequenceEngine.freeMinutesOver).
+  final int dailyFree = dailyWindow;
+  final int firstDayFree = personContext.capacityCapMinutes == null
       ? dailyWindow
       : dailyWindow.clamp(0, personContext.capacityCapMinutes!);
   final TrajectoryHorizonWorkload inRange =
@@ -378,6 +382,7 @@ TrajectoryBaseline _baseline({
         );
   final Map<String, String> revisions = <String, String>{
     'horizon': '$horizonDays',
+    // The limit itself is part of person_context_trajectory below.
     'daily_free': '$dailyFree:${freeOrigin.name}',
     'tasks': '${tasks.length}',
     'goals': '${goals.length}',
@@ -410,6 +415,7 @@ TrajectoryBaseline _baseline({
     pressure: FutureConsequenceEngine.capacityLoad(
       requiredMinutes: nextSevenDays.requiredMinutes,
       dailyFreeMinutes: dailyFree,
+      firstDayFreeMinutes: firstDayFree,
       days: 7,
     ),
     energy: (aggregation.siState.energy * 100).round().clamp(0, 100),
@@ -443,9 +449,11 @@ TrajectoryBaseline _baseline({
     pressureInHorizon: FutureConsequenceEngine.capacityLoad(
       requiredMinutes: inRange.requiredMinutes,
       dailyFreeMinutes: dailyFree,
+      firstDayFreeMinutes: firstDayFree,
       days: horizonDays,
     ),
     dailyFreeMinutes: dailyFree,
+    firstDayFreeMinutes: firstDayFree,
     dailyFreeOrigin: freeOrigin,
     tasksInHorizon: inRange.taskCount,
     requiredMinutesInHorizon: inRange.requiredMinutes,
