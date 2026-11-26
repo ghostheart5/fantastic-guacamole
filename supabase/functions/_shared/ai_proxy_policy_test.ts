@@ -1636,7 +1636,9 @@ Deno.test("rejects an extra-source context over the 12000 character limit", () =
   const long = "x".repeat(800);
   const context = aiChatContextWithExtraSources(12, {
     habits: Array.from({ length: 12 }, () => ({ title: long })),
-    recentTasks: Array.from({ length: 12 }, () => ({ title: long })),
+    recentTasksLast14Days: Array.from({ length: 12 }, () => ({
+      title: long,
+    })),
   });
   if (buildServerSystemPrompt("strategist", context) !== null) {
     throw new Error("oversized extra-source context accepted");
@@ -1655,5 +1657,58 @@ Deno.test("accepts the fullest AI chat request: 24 context keys with every extra
   }
   if (buildServerSystemPrompt("strategist", context) === null) {
     throw new Error("the fullest request was rejected");
+  }
+});
+
+Deno.test("accepts the fullest Choose a step request: 24 context keys", () => {
+  const context: Record<string, unknown> = {
+    language: "en",
+    nowLocal: "2026-08-20T10:00:00.000",
+    utcOffsetMinutes: 0,
+    taskTimeZoneId: null,
+    mode: "findConflict",
+    timeRange: "all",
+    selectedSources: ["goals", "milestones", "tasks", "timeline"],
+    entityFilter: "",
+    scenarioAssumption: "",
+    evidenceRevision: "abc",
+    taskDetailsUnavailable: true,
+    explicitlyAttachedTaskId: "t1",
+    focusedTaskId: "t1",
+    tasks: Array.from({ length: 12 }, (_, i) => ({
+      id: `t${i}`,
+      title: `Task ${i}`,
+      priority: 3,
+      scheduledStart: null,
+      deadline: null,
+      goalId: "g1",
+      description: "d",
+      estimatedDurationMinutes: 30,
+    })),
+    goals: [{ id: "g1", title: "Launch", targetDate: null }],
+    milestones: [],
+    timeline: [],
+    omittedRecordCount: 0,
+    unavailableSources: [],
+    selectedNoteId: "n1",
+    explicitlyAttachedNote: {
+      title: "Note",
+      body: "Check the pantry.",
+      taskId: "t1",
+      goalId: null,
+    },
+    reportedEnergy: 0.5,
+    reportedEmotion: "fatigued",
+    surface: "planner",
+  };
+  if (Object.keys(context).length !== 24) {
+    throw new Error(`expected 24 keys, got ${Object.keys(context).length}`);
+  }
+  if (buildServerSystemPrompt("planner", context) === null) {
+    throw new Error("the fullest Choose a step request was rejected");
+  }
+  context.historyClipped = true;
+  if (buildServerSystemPrompt("planner", context) !== null) {
+    throw new Error("a 25th key was accepted");
   }
 });

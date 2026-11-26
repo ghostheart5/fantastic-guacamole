@@ -581,6 +581,164 @@ void main() {
     }
   });
 
+  group('the full review opens each time the extras are turned on', () {
+    /// Sends once. Returns whether the full review opened first; if it did,
+    /// it is accepted.
+    Future<bool> sendOnce(WidgetTester tester) async {
+      await tester.enterText(
+        find.byKey(const Key('conversation-input')),
+        'How are my habits going?',
+      );
+      await tester.tap(find.byKey(const Key('conversation-send')));
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      final shown = find
+          .text('Review what AI will receive')
+          .evaluate()
+          .isNotEmpty;
+      if (shown) {
+        await tester.tap(find.text('Send'));
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+      }
+      return shown;
+    }
+
+    Future<ProviderContainer> start(
+      WidgetTester tester,
+      List<Map<String, dynamic>> sent, {
+      AccountStorageScope Function()? readScope,
+    }) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final container = _setup(sent, switchOn: true, readScope: readScope);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+      await _pump(tester, container);
+      return container;
+    }
+
+    testWidgets('an unchanged selection is not reviewed again, with or '
+        'without extras', (tester) async {
+      await start(tester, []);
+      expect(await sendOnce(tester), isTrue);
+      expect(await sendOnce(tester), isFalse);
+      await tester.tap(find.byKey(_habitsChip));
+      await tester.pump();
+      expect(await sendOnce(tester), isTrue);
+      expect(await sendOnce(tester), isFalse);
+    });
+
+    testWidgets('after Just this chat', (tester) async {
+      await start(tester, []);
+      await tester.tap(find.byKey(_habitsChip));
+      await tester.pump();
+      expect(await sendOnce(tester), isTrue);
+      await tester.tap(find.byKey(_chatOnly));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('conversation-scope-my-plan')));
+      await tester.pump();
+      // The settings are as they were when the review was accepted.
+      await tester.tap(find.byKey(_habitsChip));
+      await tester.pump();
+      expect(await sendOnce(tester), isTrue);
+    });
+
+    testWidgets('after Clear conversation', (tester) async {
+      await start(tester, []);
+      await tester.tap(find.byKey(_habitsChip));
+      await tester.pump();
+      expect(await sendOnce(tester), isTrue);
+      final privacy = find.text('Chat history & privacy');
+      await _reveal(tester, privacy);
+      await tester.tap(privacy);
+      await tester.pumpAndSettle();
+      final clear = find.byKey(const Key('conversation-clear-history'));
+      await _reveal(tester, clear);
+      await tester.tap(clear);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Clear conversation').last);
+      await tester.pumpAndSettle();
+      expect(_on(tester, _habitsChip), isFalse);
+      await tester.tap(find.byKey(_habitsChip));
+      await tester.pump();
+      expect(await sendOnce(tester), isTrue);
+    });
+
+    testWidgets('after reopening the chat in the same app run', (tester) async {
+      final container = await start(tester, []);
+      await tester.tap(find.byKey(_habitsChip));
+      await tester.pump();
+      expect(await sendOnce(tester), isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await _pump(tester, container);
+      expect(_on(tester, _habitsChip), isFalse);
+      await tester.tap(find.byKey(_habitsChip));
+      await tester.pump();
+      expect(await sendOnce(tester), isTrue);
+    });
+
+    testWidgets('after an account change and back', (tester) async {
+      var scope = _scope;
+      final container = await start(tester, [], readScope: () => scope);
+      await tester.tap(find.byKey(_habitsChip));
+      await tester.pump();
+      expect(await sendOnce(tester), isTrue);
+      scope = AccountStorageScope.authenticated('other-account');
+      container.invalidate(accountStorageScopeProvider);
+      for (var i = 0; i < 40; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      scope = _scope;
+      container.invalidate(accountStorageScopeProvider);
+      for (var i = 0; i < 40; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(_on(tester, _habitsChip), isFalse);
+      await tester.tap(find.byKey(_habitsChip));
+      await tester.pump();
+      expect(await sendOnce(tester), isTrue);
+    });
+  });
+
+  for (final language in ['en', 'es']) {
+    for (final scale in [1.5, 2.0]) {
+      testWidgets(
+        '$language all three choices on fit 320 px at text scale $scale',
+        (tester) async {
+          await tester.binding.setSurfaceSize(const Size(320, 900));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          final container = _setup([], switchOn: true);
+          addTearDown(() async {
+            await tester.pumpWidget(const SizedBox.shrink());
+            container.dispose();
+          });
+          await _pump(tester, container, language: language, textScale: scale);
+          expect(tester.takeException(), isNull, reason: 'before choosing');
+          for (final key in [_habitsChip, _recentChip, _goalChip]) {
+            await _reveal(tester, find.byKey(key));
+            await tester.tap(find.byKey(key));
+            await tester.pump();
+            expect(_on(tester, key), isTrue);
+            expect(
+              tester.getSize(find.byKey(key)).height,
+              greaterThanOrEqualTo(48),
+            );
+          }
+          expect(
+            find.byKey(const Key('conversation-extra-status')),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
   for (final language in ['en', 'es']) {
     testWidgets(
       '$language extra choices fit 320 px at 200 percent text and are 48 high',

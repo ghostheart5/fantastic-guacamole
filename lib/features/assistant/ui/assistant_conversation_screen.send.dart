@@ -227,7 +227,16 @@ extension _OneStepSend on _AssistantConversationScreenState {
     ),
   );
 
-  bool get _largeText => MediaQuery.textScalerOf(context).scale(14) > 21;
+  /// Large text, or somewhat enlarged text while the extra choices are shown:
+  /// their row makes the controls taller, so from 1.2 times text the layout is
+  /// the large-text one (the controls scroll within half the screen).
+  bool get _largeText {
+    final scaled = MediaQuery.textScalerOf(context).scale(14);
+    return scaled > 21 ||
+        (scaled > 16.8 &&
+            widget.surface == ConversationSurface.si &&
+            ref.read(aiChatExtraSourcesAvailableProvider));
+  }
 
   String get _previewLabel => copy('See what is sent', 'Ver qué se envía');
 
