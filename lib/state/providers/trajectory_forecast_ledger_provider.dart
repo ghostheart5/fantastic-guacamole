@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/state/providers/storage_providers.dart';
 import 'package:fantastic_guacamole/data/repositories/trajectory_forecast_ledger_repository.dart';
+import 'package:fantastic_guacamole/domain/trajectory/trajectory_calibration_adjustment.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
@@ -23,6 +24,29 @@ final trajectoryCalibrationSummaryProvider =
       return ref
           .watch(trajectoryForecastLedgerProvider)
           .whenData(TrajectoryCalibrationSummary.fromReceipts);
+    });
+
+/// How recorded forecast accuracy changes the current account's forecast
+/// ranges. Provisional (no change) while the ledger is loading or has failed,
+/// and whenever the summary belongs to another account (for example while a
+/// newly signed-in account's ledger is still loading).
+final trajectoryCalibrationAdjustmentProvider =
+    Provider<TrajectoryCalibrationAdjustment>((Ref ref) {
+      final String? namespace = ref
+          .watch(accountStorageScopeProvider)
+          .v2Namespace;
+      final AsyncValue<TrajectoryCalibrationSummary> summary = ref.watch(
+        trajectoryCalibrationSummaryProvider,
+      );
+      final TrajectoryCalibrationSummary? value = summary.hasError
+          ? null
+          : summary.value;
+      if (value == null ||
+          namespace == null ||
+          (value.accountScope != null && value.accountScope != namespace)) {
+        return TrajectoryCalibrationAdjustment.provisional;
+      }
+      return TrajectoryCalibrationAdjustment.fromSummary(value);
     });
 
 final trajectoryForecastLedgerActionsProvider =

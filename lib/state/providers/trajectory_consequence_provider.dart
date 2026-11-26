@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/policies/person_context_behavior_policy.dart';
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
+import 'package:fantastic_guacamole/domain/trajectory/trajectory_calibration_adjustment.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
 import 'package:fantastic_guacamole/engine/trajectory/future_consequence_engine.dart';
@@ -17,6 +18,7 @@ import 'package:fantastic_guacamole/state/providers/execution_signals_provider.d
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/progression_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
+import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final futureConsequenceEngineProvider = Provider<FutureConsequenceEngine>(
@@ -141,6 +143,11 @@ final trajectoryConsequenceProvider =
         personContext,
       );
       final int horizonDays = ref.watch(trajectoryHorizonDaysProvider);
+      // Recorded accuracy for this account; provisional while it loads, so
+      // the comparison is never blocked or delayed by the ledger.
+      final TrajectoryCalibrationAdjustment calibration = ref.watch(
+        trajectoryCalibrationAdjustmentProvider,
+      );
       final TrajectoryBaseline baseline = _baseline(
         aggregation: aggregation,
         progression: progression,
@@ -149,6 +156,7 @@ final trajectoryConsequenceProvider =
         observedAt: now,
         personContext: personContext,
         horizonDays: horizonDays,
+        calibration: calibration,
       );
       final List<TrajectoryIntervention> interventions =
           <TrajectoryIntervention>[
@@ -180,6 +188,7 @@ final trajectoryConsequenceProvider =
               baseline: baseline,
               interventions: interventions,
               generatedAt: now,
+              calibration: calibration,
             ),
       );
     });
@@ -259,6 +268,7 @@ TrajectoryBaseline _baseline({
   required DateTime observedAt,
   required GovernedDecisionContext personContext,
   required int horizonDays,
+  required TrajectoryCalibrationAdjustment calibration,
 }) {
   final DecisionRecommendation decision = aggregation.noContextPlanningDecision;
   final List<TrajectoryTaskNode> tasks = aggregation.tasks
@@ -384,6 +394,8 @@ TrajectoryBaseline _baseline({
       GovernedDecisionContextStatus.knownEmpty => 'available_empty',
       GovernedDecisionContextStatus.applied => personContext.revision,
     },
+    // A rule from recorded accuracy makes this a different comparison.
+    if (!calibration.isProvisional) 'calibration': calibration.revision,
   };
   return TrajectoryBaseline(
     accountScope: scope.v2Namespace ?? 'signed-out',

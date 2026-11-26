@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
+import 'package:fantastic_guacamole/domain/trajectory/trajectory_calibration_adjustment.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 import 'package:fantastic_guacamole/engine/si/si_deadline.dart';
@@ -103,6 +104,7 @@ class FutureConsequenceEngine {
     required TrajectoryBaseline baseline,
     required List<TrajectoryIntervention> interventions,
     DateTime? generatedAt,
+    TrajectoryCalibrationAdjustment? calibration,
   }) {
     final DateTime now = (generatedAt ?? DateTime.now()).toUtc();
     final List<TrajectoryScenarioOutcome> outcomes =
@@ -112,6 +114,7 @@ class FutureConsequenceEngine {
                 baseline: baseline,
                 intervention: intervention,
                 generatedAt: now,
+                calibration: calibration,
               ),
             )
             .toList(growable: false)
@@ -130,6 +133,7 @@ class FutureConsequenceEngine {
     required TrajectoryBaseline baseline,
     required TrajectoryIntervention intervention,
     DateTime? generatedAt,
+    TrajectoryCalibrationAdjustment? calibration,
   }) {
     final DateTime now = (generatedAt ?? DateTime.now()).toUtc();
     final TrajectoryTaskNode? subject = _task(baseline, intervention.subjectId);
@@ -166,11 +170,16 @@ class FutureConsequenceEngine {
     final double pressureDelta = baseline.dailyFreeMinutes <= 0
         ? (projectedPressure - keepGoingPressure).toDouble()
         : -100 * reliefMinutes / (baseline.dailyFreeMinutes * horizonDays);
-    final int uncertainty = _uncertainty(baseline, horizonDays);
+    // Recorded forecast accuracy, when supplied, widens or narrows the range
+    // within the engine's bounds and sets the calibration state.
+    final int baseUncertainty = _uncertainty(baseline, horizonDays);
+    final int uncertainty =
+        calibration?.apply(baseUncertainty) ?? baseUncertainty;
     final PredictiveConfidenceProfile confidence = _confidence(
       baseline,
       uncertainty,
       horizonDays,
+      calibration?.state ?? PredictiveCalibrationState.provisional,
     );
     final TimelineConsequence timeline = _timelineConsequence(
       baseline,
@@ -314,8 +323,8 @@ class FutureConsequenceEngine {
         ? 8
         : 0;
     return (24 - sampleRelief + horizonPenalty + missingDataPenalty).clamp(
-      8,
-      42,
+      trajectoryUncertaintyMinimum,
+      trajectoryUncertaintyMaximum,
     );
   }
 
@@ -323,6 +332,7 @@ class FutureConsequenceEngine {
     TrajectoryBaseline baseline,
     int uncertainty,
     int horizonDays,
+    PredictiveCalibrationState calibration,
   ) {
     final double horizonFreshness = (1 - (horizonDays - 1) / 120).clamp(
       .2,
@@ -333,7 +343,7 @@ class FutureConsequenceEngine {
       freshness: baseline.confidence.freshness * horizonFreshness,
       sampleSufficiency: baseline.confidence.sampleSufficiency,
       intervalPrecision: (1 - uncertainty * 2 / 100).clamp(0.0, 1.0),
-      calibration: PredictiveCalibrationState.provisional,
+      calibration: calibration,
     );
   }
 
