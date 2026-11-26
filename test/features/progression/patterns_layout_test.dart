@@ -214,6 +214,34 @@ void main() {
     handle.dispose();
   });
 
+  testWidgets('the trend bar fill follows each row\'s share and is painted', (
+    tester,
+  ) async {
+    // Today 2 tasks (the most), yesterday 1, the day before none.
+    await pumpPatterns(
+      tester,
+      tasks: <TaskEntity>[
+        finishedTask('a', patternsAt(0, 8)),
+        finishedTask('b', patternsAt(0, 9)),
+        finishedTask('c', patternsAt(1, 9)),
+      ],
+    );
+    Size part(int row, String key) => tester.getSize(
+      find.descendant(
+        of: find.byKey(ValueKey<String>('patterns-trend-$row')),
+        matching: find.byKey(ValueKey<String>(key)),
+      ),
+    );
+    final double track = part(6, 'patterns-trend-track').width;
+    expect(track, greaterThan(100));
+    Size fill(int row) => part(row, 'patterns-trend-fill');
+    expect(fill(6).width, moreOrLessEquals(track, epsilon: 0.5));
+    expect(fill(6).height, greaterThan(0), reason: 'a full bar is painted');
+    expect(fill(5).width, moreOrLessEquals(track / 2, epsilon: 0.5));
+    expect(fill(5).height, greaterThan(0), reason: 'a half bar is painted');
+    expect(fill(4).width, 0);
+  });
+
   testWidgets('section titles are headings', (tester) async {
     final SemanticsHandle handle = tester.ensureSemantics();
     await _pumpFull(tester);

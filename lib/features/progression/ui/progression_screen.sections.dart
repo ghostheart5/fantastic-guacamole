@@ -242,6 +242,7 @@ class _TrendRow extends StatelessWidget {
         PlainMetricRow(label: label, value: value),
         ExcludeSemantics(
           child: Container(
+            key: const ValueKey<String>('patterns-trend-track'),
             height: 6,
             margin: const EdgeInsets.only(bottom: 4),
             decoration: BoxDecoration(
@@ -251,7 +252,10 @@ class _TrendRow extends StatelessWidget {
             alignment: AlignmentDirectional.centerStart,
             child: FractionallySizedBox(
               widthFactor: share.clamp(0.0, 1.0),
+              // The track's alignment loosens the height; fill all of it.
+              heightFactor: 1,
               child: DecoratedBox(
+                key: const ValueKey<String>('patterns-trend-fill'),
                 decoration: BoxDecoration(
                   color: colors.accent,
                   borderRadius: BorderRadius.circular(3),
