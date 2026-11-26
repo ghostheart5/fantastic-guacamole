@@ -225,10 +225,11 @@ void main() {
           .pressure,
     );
 
-    // Another forecast falls due later the same day: not checked again today.
+    // Another forecast, due today, is added after today's check: not checked
+    // again today; checked tomorrow (one day late is still in time).
     final TrajectoryForecastReceipt dueLater = _manual(
       'account-a',
-      clock().subtract(const Duration(days: 9)),
+      clock().subtract(const Duration(days: 7)),
     );
     await ledger.append(dueLater);
     await _readyAgain(container);
