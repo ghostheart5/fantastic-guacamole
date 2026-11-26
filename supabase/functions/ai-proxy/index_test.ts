@@ -2358,6 +2358,17 @@ Deno.test("a planning turn still drops a first-person claim about saving", async
   if (run.status !== 200 || run.body.message !== "Start with the rent task.") {
     throw new Error(`claim was not removed: ${JSON.stringify(run.body)}`);
   }
+  const stored = run.settlements[0]?.p_response_payload as
+    | Record<string, unknown>
+    | undefined;
+  if (
+    run.settlements.length !== 1 ||
+    stored?.message !== "Start with the rent task."
+  ) {
+    throw new Error(
+      `stored reply is not the filtered text: ${stored?.message}`,
+    );
+  }
 });
 
 Deno.test("a leak phrase is redacted from one sentence and the reply is delivered and charged", async () => {
@@ -2373,6 +2384,14 @@ Deno.test("a leak phrase is redacted from one sentence and the reply is delivere
     run.body.message !== "Pick the smallest task. Do it before noon." ||
     run.settlements.length !== 1 || run.settlements[0].p_succeeded !== true
   ) throw new Error(`leak was not redacted: ${JSON.stringify(run.body)}`);
+  const stored = run.settlements[0].p_response_payload as
+    | Record<string, unknown>
+    | undefined;
+  if (stored?.message !== "Pick the smallest task. Do it before noon.") {
+    throw new Error(
+      `stored reply is not the filtered text: ${stored?.message}`,
+    );
+  }
 });
 
 Deno.test("a reply that introduces a prompt dump is withheld and refunded", async () => {

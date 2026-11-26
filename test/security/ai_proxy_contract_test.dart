@@ -21,9 +21,12 @@ void main() {
   });
 
   test('provider output is safety-gated before bounded recovery storage', () {
-    // The raw provider text only ever enters the sanitizer; every later
-    // check, the reply that is stored and the reply that is returned use the
-    // filtered value.
+    // For a conversation reply the raw provider text only enters the
+    // sanitizer; every later check, the reply that is stored and the reply
+    // that is returned use the filtered value. A timing request is the one
+    // exception: its raw text skips the sanitizer and goes to
+    // structuredSiTimingReply, which parses it as structured data and builds
+    // the reply from fixed text and the calculated time.
     expect(
       proxy,
       contains('sanitizeConversationReply(rawMessage, filterOptions)'),
