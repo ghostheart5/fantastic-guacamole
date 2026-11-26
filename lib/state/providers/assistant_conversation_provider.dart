@@ -260,11 +260,11 @@ final conversationExecutionRegistryProvider =
               )
               .ignore();
         },
-        onReleased: (requestId, {required failed}) {
+        onReleased: (requestId, {required failed, required completed}) {
           if (!ref.mounted) return;
           ref
               .read(aiCreditKnownBalanceProvider.notifier)
-              .release(requestId, failed: failed);
+              .release(requestId, failed: failed, completed: completed);
         },
       );
       // An account or generation change drops this registry and its timer.
@@ -287,13 +287,24 @@ final class ConversationExecutionRegistry {
   /// Told when an execution completes (answer or failure, whoever is
   /// listening) and when a request's outcome is finished; it no longer
   /// counts as running for the AI credit balance. [failed] is true when the
-  /// execution failed, which may have refunded its charge.
-  final void Function(String requestId, {required bool failed})? onReleased;
+  /// execution failed, which may have refunded its charge; [completed] when
+  /// it answered, which settled it (only from the answer itself, never from
+  /// [finish]).
+  final void Function(
+    String requestId, {
+    required bool failed,
+    required bool completed,
+  })?
+  onReleased;
 
-  void _release(String requestId, {bool failed = false}) {
+  void _release(
+    String requestId, {
+    bool failed = false,
+    bool completed = false,
+  }) {
     if (_disposed) return;
     try {
-      onReleased?.call(requestId, failed: failed);
+      onReleased?.call(requestId, failed: failed, completed: completed);
     } on Object {
       // Display bookkeeping only.
     }
@@ -371,7 +382,7 @@ final class ConversationExecutionRegistry {
       future.then<void>(
         (_) {
           if (_disposed) return;
-          _release(id);
+          _release(id, completed: true);
           try {
             onAnswered?.call(quote.packet);
           } on Object {
