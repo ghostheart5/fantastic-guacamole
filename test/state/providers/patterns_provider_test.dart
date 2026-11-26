@@ -355,6 +355,38 @@ void main() {
     expect(next.habits.value.map((h) => h.title), <String>['Stretch B']);
   });
 
+  test('the family enforces its key: another account or sign-in gets the '
+      'empty result', () async {
+    final ProviderContainer container = build();
+    await settled(container);
+    final String? namespace = container
+        .read(accountStorageScopeProvider)
+        .v2Namespace;
+    final int generation = container
+        .read(authSessionBoundaryProvider)
+        .generation;
+    Future<PatternsResult> forKey(String key) {
+      final ProviderSubscription<Future<PatternsResult>> sub = container.listen(
+        patternsForAccountProvider(key).future,
+        (_, _) {},
+      );
+      addTearDown(sub.close);
+      return sub.read();
+    }
+
+    final PatternsResult own = await forKey('$namespace|$generation');
+    expect(own.habits.value.single.title, 'Walk A');
+    for (final String key in <String>[
+      'someone-else|$generation',
+      '$namespace|${generation + 1}',
+    ]) {
+      final PatternsResult other = await forKey(key);
+      expect(other.habits.value, isEmpty, reason: key);
+      expect(other.trend.value.tasksFinished, 0, reason: key);
+      expect(other.missed.skippedTasks.value, isEmpty, reason: key);
+    }
+  });
+
   test('storage that is not writable gives the empty result', () async {
     scope = const AccountStorageScope.unsafe();
     final ProviderContainer container = build();

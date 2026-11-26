@@ -61,10 +61,18 @@ Duration patternsDayRolloverDelay(DateTime now) {
 /// recorded and when the local day changes. The task and habit providers are
 /// only change triggers; the data is read from the account-scoped stores under
 /// an account lease, so nothing of another account can be shown.
+///
+/// Do not watch this directly: watch [patternsProvider], which picks the key
+/// of the current account and sign-in. The key is also enforced here: a key
+/// that is not the current `namespace|auth generation` gets the empty result.
 final patternsForAccountProvider = FutureProvider.autoDispose
     .family<PatternsResult, String>((Ref ref, String accountKey) async {
       final int rangeDays = ref.watch(patternsRangeDaysProvider);
       final DateTime now = ref.watch(patternsClockProvider)();
+      final AccountOperation owner = AccountOperation.capture(ref);
+      if ('${owner.namespace}|${owner.generation}' != accountKey) {
+        return PatternsResult.empty(now: now, rangeDays: rangeDays);
+      }
       // Change triggers, never awaited. The first load of each is skipped: this
       // provider reads the stores itself.
       void refreshOnChange<T>(AsyncValue<T>? previous, AsyncValue<T> next) {
@@ -79,7 +87,6 @@ final patternsForAccountProvider = FutureProvider.autoDispose
       });
       ref.onDispose(rollover.cancel);
 
-      final AccountOperation owner = AccountOperation.capture(ref);
       try {
         final List<TaskEntity> tasks = await owner.wait(
           ref.watch(getTasksUseCaseProvider).call(),
