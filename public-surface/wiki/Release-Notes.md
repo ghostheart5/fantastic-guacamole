@@ -10,7 +10,7 @@ The reviewed source is `f4fa365b9659a09490fbd44c06942af97e6149ba`, merged in PR2
 - Forecast/reflection navigation reaches Schedule in the reviewed paths; profile setup and startup notification routing have targeted repairs.
 - Expanded baseline warning wording has English/Spanish regression coverage.
 - Comparison readiness is nearby and View comparison reveals the matching result. Editing Complete → Delay → Remove clears the previous ready/View action until Compare is pressed again.
-- Guidance distinguishes free tools from quoted cloud questions and makes eligible monthly credits conditional. Settings explains guide replay and account setup separately.
+- Guidance distinguishes "On this device · free" from quoted AI chat questions and makes eligible monthly credits conditional. Settings explains guide replay and account setup separately.
 
 ## Evidence and limits
 

@@ -5,7 +5,7 @@
 - [[Add something|Creator]]
 - [[My plan and Schedule|Timeline]]
 - [[Chat|Smart-Planner]]
-- [[SI Chat|SI-CONSOLE]]
+- [[Chat|SI-CONSOLE]]
 - [[Predictions|Trajectory-Engine]]
 - [[Activity|Progression]]
 - [[Settings]]

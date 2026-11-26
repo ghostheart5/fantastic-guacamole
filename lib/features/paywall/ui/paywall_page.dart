@@ -350,8 +350,7 @@ class _PaywallCopy {
   String configTitle(String title) {
     if (!_isSpanish) return title;
     return switch (title) {
-      'External-assistant credit plans' =>
-        'Planes de créditos del asistente externo',
+      'AI chat credit plans' => 'Planes de créditos del chat con IA',
       'Unlocked for testing' => 'Desbloqueado para pruebas',
       'Billing unavailable' => 'Facturación no disponible',
       'Plans unavailable' => 'Planes no disponibles',
@@ -383,8 +382,8 @@ class _PaywallCopy {
         'Las compras no están disponibles en esta plataforma.',
       'Subscriptions are disabled while launch-readiness work is completed.' =>
         'Las suscripciones están desactivadas mientras se completa la preparación para el lanzamiento.',
-      'Choose a plan to increase the monthly external-assistant credit allowance.' =>
-        'Elige un plan para aumentar el saldo mensual de créditos del asistente externo.',
+      'Choose a plan to increase the monthly AI chat credit allowance.' =>
+        'Elige un plan para aumentar el saldo mensual de créditos del chat con IA.',
       'Purchases are temporarily unavailable while billing verification is being finalized.' =>
         'Las compras no están disponibles temporalmente mientras finaliza la verificación de la facturación.',
       _ => body,
@@ -431,9 +430,9 @@ class _PaywallCopy {
     if (!_isSpanish) return prompt.message;
     return switch (prompt.trigger) {
       'ai_credit_limit' || 'ai_limit' =>
-        'Los créditos del asistente externo se han agotado. Axiomara continuará con la orientación en el dispositivo.',
+        'Los créditos del chat con IA se han agotado. Axiomara continuará con «En este dispositivo · gratis».',
       'ai_credit_low' =>
-        'Te quedan ${prompt.remainingCredits ?? 0} créditos del asistente externo.',
+        'Te quedan ${prompt.remainingCredits ?? 0} créditos del chat con IA.',
       _ => prompt.message,
     };
   }
@@ -857,7 +856,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
         configAsync.asData?.value ??
         const PaywallEntity(
           featureId: 'premium',
-          title: 'External-assistant credit plans',
+          title: 'AI chat credit plans',
           body:
               'Choose a plan. Google Play provides the displayed price and confirms billing frequency and renewal terms before purchase. Credits are granted only after a verified purchase or paid renewal.',
           plans: <PaywallPlan>[],

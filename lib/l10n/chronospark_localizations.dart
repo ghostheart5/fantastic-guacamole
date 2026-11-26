@@ -1103,13 +1103,13 @@ final class SIRoutineCopy {
       ? !enabled
             ? 'Chat no disponible'
             : busy
-            ? 'El asistente está trabajando'
-            : 'Preguntar al asistente'
+            ? 'Chat está trabajando'
+            : 'Enviar a Chat'
       : !enabled
       ? 'Chat unavailable'
       : busy
-      ? 'The Assistant is working'
-      : 'Ask the Assistant';
+      ? 'Chat is working'
+      : 'Send to Chat';
 }
 
 enum ChronoSparkString {

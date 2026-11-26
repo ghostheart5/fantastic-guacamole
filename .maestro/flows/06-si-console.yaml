@@ -24,7 +24,7 @@ tags:
 - tapOn: "(?s)^Your question.*"
 - inputText: "What evidence is missing?"
 - runFlow: ../subflows/dismiss-android-keyboard.yaml
-- tapOn: "Ask the Assistant"
+- tapOn: "Send to Chat"
 # The transcript follows the response footer, which can clip the first section.
 # Wait for completion, then reveal and verify each required response section.
 - extendedWaitUntil:
@@ -58,7 +58,7 @@ tags:
 - inputText: "/status"
 - assertVisible: "(?s).*/status.*"
 - runFlow: ../subflows/dismiss-android-keyboard.yaml
-- tapOn: "Ask the Assistant"
+- tapOn: "Send to Chat"
 - extendedWaitUntil:
     visible: "(?s).*ASSISTANT STATUS.*Read-only Chat:.*"
     timeout: 10000
@@ -77,7 +77,7 @@ tags:
 - inputText: "/not-real preserve this"
 - assertVisible: "(?s).*/not-real preserve this.*"
 - runFlow: ../subflows/dismiss-android-keyboard.yaml
-- tapOn: "Ask the Assistant"
+- tapOn: "Send to Chat"
 - extendedWaitUntil:
     visible: "(?s).*Unknown shortcut.*No part of the request was sent or discarded.*"
     timeout: 10000
@@ -96,7 +96,7 @@ tags:
 - inputText: "I want to kill myself"
 - assertVisible: "(?s).*I want to kill myself.*"
 - runFlow: ../subflows/dismiss-android-keyboard.yaml
-- tapOn: "Ask the Assistant"
+- tapOn: "Send to Chat"
 - extendedWaitUntil:
     visible: "Let's pause and focus on your safety"
     timeout: 10000

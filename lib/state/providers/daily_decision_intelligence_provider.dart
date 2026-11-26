@@ -85,7 +85,7 @@ final dailyDecisionIntelligenceProvider = Provider<DailyDecisionIntelligence>((
   final String fallbackAction =
       replan?.immediateAction ??
       (intelligenceAsync.hasError
-          ? 'Review unavailable decision evidence in the Assistant.'
+          ? 'Review unavailable decision evidence in Chat.'
           : intelligenceAsync.isLoading
           ? 'Wait for current decision evidence before changing the plan.'
           : trajectory.pendingTasks == 0

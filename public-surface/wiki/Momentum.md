@@ -66,9 +66,9 @@ Predictions is separate. It examines explicit future scenarios, assumptions, hor
 
 Momentum can inform future planning, but it is not a scenario comparison and it is not a prediction.
 
-### Momentum and Chat or SI Chat
+### Momentum and Chat
 
-[[Chat|Smart Planner]] can provide explainable planning assistance, and [[SI Chat|SI Console]] can support deeper strategic investigation. Momentum is only one possible piece of context. Review any guidance before acting.
+[[Chat|Smart Planner]] can provide explainable planning assistance, and [[Chat|SI Console]] can support deeper strategic investigation. Momentum is only one possible piece of context. Review any guidance before acting.
 
 ## What Momentum is not
 
@@ -93,5 +93,5 @@ Use the signal to make a kinder, more realistic next choice—not to demand perf
 [[Goals|Goals]]
 [[Tasks|Tasks]]
 [[Chat|Smart Planner]]
-[[SI Chat|SI Console]]
+[[Chat|SI Console]]
 [[FAQ|FAQ]]

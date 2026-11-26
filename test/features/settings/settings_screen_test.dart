@@ -315,7 +315,7 @@ void main() {
     bool noTasks = false,
     bool externalAiAvailable = false,
     bool internalAdvisor = false,
-    AssistantReleaseCohort? releaseCohort,
+    bool internalReleaseAccount = false,
   }) {
     final AccountStorageScope resolvedScope =
         accountScope ??
@@ -347,18 +347,17 @@ void main() {
         ],
         if (internalAdvisor)
           internalAdvisorAccessProvider.overrideWithValue(true),
-        if (releaseCohort != null)
-          assistantReleaseDecisionProvider.overrideWith(
-            (Ref ref, AssistantReleaseCapability capability) async =>
-                AssistantReleaseDecision(
-                  enabled: true,
-                  shadowEvaluationEnabled: false,
-                  cohort: releaseCohort,
-                  reasonCode: 'test',
-                  accountDigest: 'test-digest',
-                  capability: capability,
-                  configDigest: 'test-config',
-                ),
+        if (internalReleaseAccount)
+          assistantReleaseConfigProvider.overrideWith(
+            (Ref ref) async => AssistantReleaseConfig(
+              stage: AssistantReleaseStage.general,
+              canaryBasisPoints: 0,
+              shadowEvaluationEnabled: false,
+              internalAccountDigests: <String>{
+                assistantReleaseAccountDigest(resolvedScope.v2Namespace!),
+              },
+              rollbackCapabilities: const <AssistantReleaseCapability>{},
+            ),
           ),
         if (authService != null)
           authServiceProvider.overrideWithValue(authService),
@@ -1774,6 +1773,9 @@ void main() {
     final String releaseLabel = spanish
         ? 'CONTROL DE VERSIÓN DEL ASISTENTE'
         : 'ASSISTANT RELEASE CONTROL';
+    final String leaveLabel = spanish
+        ? 'Salir de la beta del asistente'
+        : 'Leave the assistant beta';
     final String memoryLabel = spanish
         ? 'LO QUE AXIOMARA RECUERDA'
         : 'WHAT AXIOMARA REMEMBERS';
@@ -1825,7 +1827,7 @@ void main() {
         expect(find.textContaining('surface-scoped'), findsNothing);
         expect(find.textContaining('Join opt-in'), findsNothing);
         expect(find.textContaining('Unirse voluntariamente'), findsNothing);
-        expect(find.textContaining(RegExp(r'SI')), findsNothing);
+        expect(find.textContaining(RegExp(r'\bSI\b')), findsNothing);
         expect(find.text(memoryLabel), findsOneWidget);
         expect(
           find.textContaining(
@@ -1838,14 +1840,14 @@ void main() {
 
     for (final bool advisor in <bool>[true, false]) {
       testWidgets(
-        '${spanish ? 'es' : 'en'}: release controls show for the internal ${advisor ? 'access flag' : 'rollout cohort'}',
+        '${spanish ? 'es' : 'en'}: release controls show for the internal ${advisor ? 'access flag' : 'account list'}',
         (WidgetTester tester) async {
           useTallSurface(tester);
           await openPlanning(
             tester,
             createContainer(
               internalAdvisor: advisor,
-              releaseCohort: advisor ? null : AssistantReleaseCohort.internal,
+              internalReleaseAccount: !advisor,
             ),
           );
           addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
@@ -1857,23 +1859,76 @@ void main() {
           );
 
           expect(find.text(releaseLabel), findsOneWidget);
-          expect(find.textContaining(RegExp(r'SI')), findsNothing);
+          expect(find.textContaining(RegExp(r'\bSI\b')), findsNothing);
+          expect(find.text(leaveLabel), findsNothing);
         },
       );
     }
 
     testWidgets(
-      '${spanish ? 'es' : 'en'}: release controls stay hidden for beta and general cohorts',
+      '${spanish ? 'es' : 'en'}: a person who never joined the beta sees no beta control',
       (WidgetTester tester) async {
         useTallSurface(tester);
-        await openPlanning(
-          tester,
-          createContainer(releaseCohort: AssistantReleaseCohort.optedInBeta),
-        );
+        await openPlanning(tester, createContainer());
         addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
         await tester.pump(const Duration(milliseconds: 100));
 
         expect(find.text(releaseLabel), findsNothing);
+        expect(find.text(leaveLabel), findsNothing);
+        expect(find.textContaining('beta'), findsNothing);
+        expect(find.textContaining('Join'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      '${spanish ? 'es' : 'en'}: an opted-in person sees only a switch to leave the beta, and leaving works',
+      (WidgetTester tester) async {
+        useTallSurface(tester);
+        final AccountStorageScope scope = AccountStorageScope.authenticated(
+          'settings-test-account',
+        );
+        final String key =
+            'assistant_beta_opt_in_v1.${assistantReleaseAccountDigest(scope.v2Namespace!)}';
+        SharedPreferences.setMockInitialValues(<String, Object>{key: true});
+        addTearDown(
+          () => SharedPreferences.setMockInitialValues(<String, Object>{}),
+        );
+        await openPlanning(tester, createContainer(accountScope: scope));
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.scrollUntilVisible(
+          find.text(leaveLabel),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+
+        expect(find.text(releaseLabel), findsNothing);
+        expect(find.text(leaveLabel), findsOneWidget);
+        expect(find.textContaining('Join'), findsNothing);
+        expect(find.textContaining('Unirse'), findsNothing);
+        expect(find.textContaining('Release stage'), findsNothing);
+
+        await tester.ensureVisible(find.text(leaveLabel));
+        await tester.pump();
+        tester
+            .widget<InkWell>(
+              find
+                  .ancestor(
+                    of: find.text(leaveLabel),
+                    matching: find.byType(InkWell),
+                  )
+                  .first,
+            )
+            .onTap!();
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.text(leaveLabel), findsNothing);
+        expect(find.text(releaseLabel), findsNothing);
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        expect(prefs.getBool(key), isFalse);
       },
     );
   }

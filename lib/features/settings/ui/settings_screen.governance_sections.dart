@@ -374,8 +374,8 @@ class _MemoryGovernanceSection extends ConsumerWidget {
             child: Text(
               journeyText(
                 context,
-                'By default the Assistant uses what you tell it only this once. It keeps something longer only if you confirm it, only for the part of the app it came from, and it forgets it automatically after a while. Every kept item has a record you can review. Raw emotional and crisis messages are not kept, and the Assistant does not save interpretive memory.',
-                'De forma predeterminada, el asistente usa lo que le cuentas solo esta vez. Guarda algo por más tiempo solo si lo confirmas, solo para la parte de la app de donde vino, y lo olvida automáticamente pasado un tiempo. Cada elemento guardado tiene un registro que puedes revisar. No se conservan mensajes emocionales ni de crisis sin procesar, y el asistente no guarda memoria interpretativa.',
+                'By default Axiomara uses what you tell it only this once. It keeps something longer only if you confirm it, only for the part of the app it came from, and forgets it automatically after a while. Every kept item has a record you can review. Chat never keeps anything long-term. Raw emotional and crisis messages are not kept, and interpretive memory is not saved.',
+                'De forma predeterminada, Axiomara usa lo que le cuentas solo esta vez. Guarda algo por más tiempo solo si lo confirmas, solo para la parte de la app de donde vino, y lo olvida automáticamente pasado un tiempo. Cada elemento guardado tiene un registro que puedes revisar. Chat nunca guarda nada a largo plazo. No se conservan mensajes emocionales ni de crisis sin procesar, y no se guarda memoria interpretativa.',
               ),
               style: const TextStyle(
                 color: Colors.white60,
@@ -399,7 +399,9 @@ class _MemoryGovernanceSection extends ConsumerWidget {
                 : journeyText(
                     context,
                     '${memories.length} kept · only for your account, only where they were made, and they expire',
-                    '${memories.length} guardados · solo de tu cuenta, solo donde se crearon, y caducan',
+                    memories.length == 1
+                        ? '1 guardado · solo de tu cuenta, solo donde se creó, y caduca'
+                        : '${memories.length} guardados · solo de tu cuenta, solo donde se crearon, y caducan',
                   ),
           ),
           _NeonStatusTile(
@@ -550,12 +552,59 @@ class _AssistantReleaseSection extends ConsumerWidget {
     final AssistantReleaseConfig? loadedConfig = config.asData?.value;
     final bool isSpanish = ChronoSparkLocalizations.of(context).isSpanish;
     // Release engineering controls are for the internal cohort only: the
-    // trusted internal-access flag or the internal rollout cohort. Everyone
-    // else sees nothing, and the controls keep driving the same behaviour.
+    // trusted internal-access flag or an account digest on the internal list
+    // (checked on the config so a rollback or an "off" stage does not hide
+    // the status view from testers). Everyone else sees nothing, except an
+    // account that is still opted in, which sees one switch to leave.
+    final String? digest = plannerDecision.asData?.value.accountDigest;
     final bool isInternal =
         ref.watch(internalAdvisorAccessProvider) ||
-        plannerDecision.asData?.value.cohort == AssistantReleaseCohort.internal;
-    if (!isInternal) return const SizedBox.shrink();
+        (loadedConfig != null &&
+            digest != null &&
+            loadedConfig.internalAccountDigests.contains(digest));
+    if (!isInternal) {
+      if (optIn.asData?.value != true) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: _Section(
+          label: journeyText(context, 'ASSISTANT BETA', 'BETA DEL ASISTENTE'),
+          accentColor: AppColors.neonViolet,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                child: Text(
+                  journeyText(
+                    context,
+                    'Leaving takes your account out of the assistant beta. Some assistant features that were only open to beta members may turn off. Your saved plans are not changed.',
+                    'Salir saca tu cuenta de la beta del asistente. Algunas funciones del asistente que eran solo para miembros de la beta pueden desactivarse. Tus planes guardados no cambian.',
+                  ),
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+              _NeonToggleTile(
+                title: journeyText(
+                  context,
+                  'Leave the assistant beta',
+                  'Salir de la beta del asistente',
+                ),
+                value: false,
+                onChanged: (bool _) => unawaited(
+                  ref
+                      .read(assistantBetaOptInProvider.notifier)
+                      .setEnabled(false),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(top: 10),
       child: _Section(
@@ -573,8 +622,8 @@ class _AssistantReleaseSection extends ConsumerWidget {
               child: Text(
                 journeyText(
                   context,
-                  'New assistant behavior is assigned deterministically. Joining beta is optional; leaving removes beta eligibility. Local planning, the Assistant, memory, critic, and optional external explanation each have an independent emergency rollback.',
-                  'El comportamiento nuevo del asistente se asigna de forma determinista. Unirse a la beta es opcional; salir elimina la elegibilidad. La planificación local, el asistente, la memoria, el crítico y la explicación externa opcional tienen cada uno una reversión de emergencia independiente.',
+                  'New assistant behavior is assigned deterministically. Leaving the beta removes beta eligibility. Local planning, the Assistant, memory, critic, and optional AI chat explanation each have an independent emergency rollback.',
+                  'El comportamiento nuevo del asistente se asigna de forma determinista. Salir de la beta elimina la elegibilidad. La planificación local, el asistente, la memoria, el crítico y la explicación opcional del chat con IA tienen cada uno una reversión de emergencia independiente.',
                 ),
                 style: const TextStyle(
                   color: Colors.white60,

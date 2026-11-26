@@ -262,7 +262,7 @@ final operatingDecisionReceiptProvider = FutureProvider<OperatingDecisionReceipt
     intentDestination = RoutePaths.smartPlanner;
   } else if (snapshot.evidenceCoverage < .5) {
     intentType = OperatingActionType.openSiConsole;
-    intentLabel = 'Review evidence in the Assistant';
+    intentLabel = 'Review evidence in Chat';
     intentDestination = RoutePaths.siConsole;
   } else if (snapshot.pressure >= 80 && snapshot.overdueCount == 0) {
     intentType = OperatingActionType.openTrajectoryEngine;

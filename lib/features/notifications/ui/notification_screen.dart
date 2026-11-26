@@ -436,7 +436,13 @@ final RegExp _goalDueTomorrowMessage = RegExp(
 );
 
 String _localizedMessage(String raw, bool es) {
-  if (!es) return raw;
+  if (!es) {
+    // Records saved before the rename still say "SI".
+    return raw.replaceFirst(
+      ' skipped. SI will adapt the next pick.',
+      ' skipped. The Assistant will adapt the next pick.',
+    );
+  }
   final RegExpMatch? goalDue = _goalDueTomorrowMessage.firstMatch(raw);
   if (goalDue != null) {
     final String steps = goalDue.group(2) == null
@@ -461,6 +467,10 @@ String _localizedMessage(String raw, bool es) {
       )
       .replaceFirst(
         ' skipped. The Assistant will adapt the next pick.',
+        ' se omitió. El asistente adaptará la próxima elección.',
+      )
+      .replaceFirst(
+        ' skipped. SI will adapt the next pick.',
         ' se omitió. El asistente adaptará la próxima elección.',
       )
       .replaceFirst('" is complete.', '" se cumplió.');

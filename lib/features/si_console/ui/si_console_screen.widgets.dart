@@ -924,7 +924,11 @@ class _TypingIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       liveRegion: true,
-      label: 'The Assistant is analyzing the current evidence',
+      label: journeyText(
+        context,
+        'Chat is analyzing the current evidence',
+        'Chat está analizando la evidencia actual',
+      ),
       child: ExcludeSemantics(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),

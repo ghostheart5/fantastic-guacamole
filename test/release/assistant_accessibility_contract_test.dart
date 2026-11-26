@@ -42,10 +42,7 @@ void main() {
     );
     expect(source, contains('MediaQuery.textScalerOf(context).scale(1) > 1.3'));
     expect(source, contains('child: Text(copy.retryEvidence)'));
-    expect(
-      source,
-      contains("label: 'The Assistant is analyzing the current evidence'"),
-    );
+    expect(source, contains("'Chat is analyzing the current evidence'"));
     expect(source, isNot(contains('TextScaler.noScaling')));
   });
 

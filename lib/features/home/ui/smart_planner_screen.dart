@@ -1096,7 +1096,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
       if (!mounted) return;
       setState(() {
         _plannerExplanationError =
-            'This plan cannot be sent for external explanation. Your deterministic plan is unchanged.';
+            'This plan cannot be sent for an AI chat explanation. Your deterministic plan is unchanged.';
       });
       return;
     }
@@ -1143,7 +1143,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
         _pendingExplanationPacket = null;
         _pendingExplanationQuote = null;
         _plannerExplanationError =
-            'The optional explanation quote is unavailable. No content was sent to the external provider, no credits were charged, and your plan is unchanged.';
+            'The optional explanation quote is unavailable. No content was sent to AI chat, no credits were charged, and your plan is unchanged.';
       });
     }
   }

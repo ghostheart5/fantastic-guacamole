@@ -293,6 +293,8 @@ class _ModeChoice extends StatelessWidget {
       ),
     );
     final hint = tooltip;
-    return hint == null ? button : Tooltip(message: hint, child: button);
+    return hint == null
+        ? button
+        : Tooltip(message: hint, excludeFromSemantics: true, child: button);
   }
 }

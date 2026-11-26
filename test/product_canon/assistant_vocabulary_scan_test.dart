@@ -2,40 +2,40 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// One vocabulary for the assistant: the feature is "Assistant", its two modes
-/// are "On this device · free" and "AI chat". Internal names (SI, SI Console,
-/// "external AI", "cloud AI", "free tools", "on-device tools") must not reach
-/// a person in English or Spanish.
+/// One vocabulary for the assistant: the feature is "Assistant" (Choose a step
+/// and Chat together), its two modes are "On this device · free" and "AI chat",
+/// and the destination screen is "Chat". Internal names must not reach a
+/// person in English or Spanish.
 ///
-/// This is a source scan of visible copy. Exception messages thrown between
-/// layers, code identifiers, route names and test keys are not visible copy.
+/// This scans every quoted string in lib/ outside comments. Only the files and
+/// messages listed below are exempt.
 final RegExp _retired = RegExp(
-  r'\bSI\b|\bSI Chat\b|\bChat SI\b|Free tools|free tools|On-device tools|'
-  r'External AI|external AI|IA externa|[Cc]loud AI|IA en la nube|'
-  r'Herramientas gratis|Herramientas locales|asistencia de IA externa',
+  r'\bSI\b|Free tools|free tools|On-device tools|[Ee]xternal[- ]assistant|'
+  r'[Ee]xternal AI|[Ee]xternal explanation|[Ee]xternal provider|'
+  r'[Ee]xternal service|IA externa|asistente externo|servicio externo|'
+  r'proveedor externo|explicaci[oó]n externa|[Cc]loud AI|[Cc]loud questions?|'
+  r'IA en la nube|Herramientas gratis|Herramientas locales|'
+  r'asistencia de IA externa',
 );
-final RegExp _quoted = RegExp(r"""(['"])((?:\.|(?!\1).)*)\1""");
+final RegExp _quoted = RegExp(r"""(['"])((?:\\.|(?!\1).)*)\1""");
 
-const List<String> _roots = <String>[
-  'lib/features',
-  'lib/l10n',
-  'lib/tutorial',
-  'lib/ui/widgets',
-  'lib/engine/si',
-  'lib/state/providers',
-  'lib/state/controllers',
-  'lib/domain/strategic/si_console_shortcut_registry.dart',
-  'lib/domain/entities/memory_entity.dart',
-];
+/// Files whose strings are exception messages, log lines, storage inventory
+/// or protocol identifiers, never shown to a person.
+const Set<String> _exemptFiles = <String>{
+  'lib/domain/entities/si_v2_contract.dart',
+  'lib/domain/entities/assistant_contracts.dart',
+  'lib/domain/strategic/si_console_intelligence_contract.dart',
+  'lib/domain/assistant/axiomara_router_contract.dart',
+  'lib/domain/policies/assistant_safety_policy.dart',
+  'lib/core/data/account_data_registry.dart',
+  'lib/data/services/workspace_store_service.dart',
+  'lib/data/repositories/si_engine_repository.dart',
+  'lib/config/public_release_profile.dart',
+};
 
-/// Spanish "SI" means "if" in these uppercase labels; a pattern is not copy.
-bool _isNotCopy(String copy) =>
-    copy.startsWith('SI ESPERAS') ||
-    copy == 'SI SE APLAZA' ||
-    copy.startsWith(r'^(?:SI|ASSISTANT)');
-
-/// Messages that travel between layers inside exceptions and evidence ids.
+/// Single internal messages in otherwise visible files.
 const Set<String> _internalMessages = <String>{
+  ' skipped. SI will adapt the next pick.',
   'SI display boundary rejected a response from another runtime.',
   'SI Console must show the dedicated crisis support route.',
   'SI Console must show the dedicated non-crisis support route.',
@@ -43,33 +43,37 @@ const Set<String> _internalMessages = <String>{
   'SI V2 withheld a draft that could not be safely repaired into its typed contract.',
 };
 
+/// Spanish "SI" means "if" in these uppercase labels; a pattern is not copy.
+bool _isNotCopy(String copy) =>
+    copy.startsWith('SI ESPERAS') ||
+    copy == 'SI SE APLAZA' ||
+    copy.startsWith(r'^(?:SI|ASSISTANT)') ||
+    copy.startsWith('SI shortcut ') ||
+    copy.startsWith('Duplicate SI shortcut') ||
+    copy.startsWith('Invalid SI shortcut') ||
+    copy.startsWith('SI shortcut registry');
+
 void main() {
   test('no visible text uses a retired assistant name', () {
     final List<String> violations = <String>[];
-    for (final String root in _roots) {
-      final List<File> files = root.endsWith('.dart')
-          ? <File>[File(root)]
-          : Directory(root)
-                .listSync(recursive: true)
-                .whereType<File>()
-                .where((File f) => f.path.endsWith('.dart'))
-                .toList();
-      for (final File file in files) {
-        final List<String> lines = file.readAsLinesSync();
-        for (int i = 0; i < lines.length; i++) {
-          final String line = lines[i];
-          final String trimmed = line.trimLeft();
-          if (trimmed.startsWith(RegExp(r'(import|export|part|//)'))) continue;
-          final String nearby = lines
-              .sublist(i < 3 ? 0 : i - 3, i + 1)
-              .join('\n');
-          if (RegExp(r'throw |Exception\(|Error\(').hasMatch(nearby)) continue;
-          for (final RegExpMatch match in _quoted.allMatches(line)) {
-            final String copy = match.group(2)!;
-            if (_isNotCopy(copy) || _internalMessages.contains(copy)) continue;
-            if (_retired.hasMatch(copy)) {
-              violations.add('${file.path}:${i + 1}: $copy');
-            }
+    for (final File file
+        in Directory('lib')
+            .listSync(recursive: true)
+            .whereType<File>()
+            .where((File f) => f.path.endsWith('.dart'))) {
+      final String path = file.path.replaceAll(r'\', '/');
+      if (_exemptFiles.contains(path)) continue;
+      final List<String> lines = file.readAsLinesSync();
+      for (int i = 0; i < lines.length; i++) {
+        final String trimmed = lines[i].trimLeft();
+        if (trimmed.startsWith(RegExp(r'(import|export|part|//|\*)'))) {
+          continue;
+        }
+        for (final RegExpMatch match in _quoted.allMatches(lines[i])) {
+          final String copy = match.group(2)!;
+          if (_isNotCopy(copy) || _internalMessages.contains(copy)) continue;
+          if (_retired.hasMatch(copy)) {
+            violations.add('$path:${i + 1}: $copy');
           }
         }
       }

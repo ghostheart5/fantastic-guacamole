@@ -396,7 +396,7 @@ final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
     featureId: 'premium',
     title: subscription.isTesting
         ? 'Unlocked for testing'
-        : 'External-assistant credit plans',
+        : 'AI chat credit plans',
     body: subscription.isTesting
         ? 'Subscription checks are bypassed in this testing mode.'
         : 'Choose a plan. Google Play provides the displayed price and confirms billing frequency and renewal terms before purchase. Credits are granted only after a verified purchase or paid renewal.',

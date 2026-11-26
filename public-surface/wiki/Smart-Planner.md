@@ -2,7 +2,7 @@
 
 > Guide updated October 23, 2026. Screen names can vary by installed version. The October 22–23 repairs are tested and merged; this does not establish that a new Google Play build is available. See [[Release Notes|Release-Notes]].
 
-Chat supports AI and SI questions alongside free tools. Ask about a specific situation and choose the records or context you want to use. A useful request is: “Help me find time for my grocery task today. My appointment ends at 5:45 and the store closes at 8.”
+Chat supports questions in both modes, "On this device · free" and AI chat. Ask about a specific situation and choose the records or context you want to use. A useful request is: “Help me find time for my grocery task today. My appointment ends at 5:45 and the store closes at 8.”
 
 ## Before sending
 
@@ -12,7 +12,7 @@ Review the selected context, consent, availability and displayed credit quote. A
 
 Check which evidence supports the answer, which details are assumptions, what is missing and whether the proposed next step fits your day. A response can be wrong. Correct false assumptions rather than treating confident wording as proof.
 
-Suggestions do not silently move, complete or remove your records. Review any separate save or apply action. For deeper investigation see [[SI Chat|SI-CONSOLE]].
+Suggestions do not silently move, complete or remove your records. Review any separate save or apply action. For deeper investigation see [[Chat|SI-CONSOLE]].
 
 ## History and privacy
 

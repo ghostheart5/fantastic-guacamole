@@ -55,7 +55,7 @@ Review Notes when they are useful to a current decision or plan. A review may le
 
 ## Notes across Axiomara
 
-Notes are part of the context available across Axiomara. [[Today|Nexus]] can show the state of connected inputs, while [[Chat|Smart Planner]] and [[SI Chat|SI Console]] can help you work with relevant available information. Treat their output as guidance to evaluate, not as an automatic conclusion drawn from every Note.
+Notes are part of the context available across Axiomara. [[Today|Nexus]] can show the state of connected inputs, while [[Chat|Smart Planner]] and [[Chat|SI Console]] can help you work with relevant available information. Treat their output as guidance to evaluate, not as an automatic conclusion drawn from every Note.
 
 ## A simple Note structure
 
@@ -85,5 +85,5 @@ Use only the sections that help. A quick idea can stay short; a decision record 
 - [[Schedule|Timeline]]
 - [[Today|Nexus]]
 - [[Chat|Smart Planner]]
-- [[SI Chat|SI Console]]
+- [[Chat|SI Console]]
 - [[Core Concepts|Core Concepts]]
