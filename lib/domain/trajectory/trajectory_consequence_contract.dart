@@ -3,7 +3,7 @@ import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contra
 
 /// Written into every new forecast receipt. v4: the time range sets which
 /// tasks count, and workload is measured against free time.
-const String trajectoryConsequenceModelVersion = 'trajectory-consequence-v3';
+const String trajectoryConsequenceModelVersion = 'trajectory-consequence-v4';
 
 enum TrajectorySourceState { loading, ready, empty, partial, offline, error }
 
