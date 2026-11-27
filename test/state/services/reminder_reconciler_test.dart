@@ -106,6 +106,16 @@ void main() {
         isTrue,
       );
       expect(fixture.scheduler.registered, ['goal_reminder_trip_3d']);
+      expect(fixture.scheduler.pending, contains('goal_reminder_trip_3d'));
+      fixture.scheduler.clearLog();
+      expect(
+        await fixture.reconcile(
+          [fixture.goal('trip')],
+          [fixture.habit('walk', minutes: 18 * 60)],
+        ),
+        isTrue,
+      );
+      expect(fixture.scheduler.registered, isEmpty);
       expect(fixture.scheduler.cancelled, isEmpty);
     },
   );

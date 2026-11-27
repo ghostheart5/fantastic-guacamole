@@ -152,6 +152,8 @@ class SettingsUiActions {
         shouldContinue: () => owner.isCurrent,
       ),
     );
+    owner.check();
+    _ref.invalidate(registeredRemindersProvider);
     _ref.invalidate(automationNotificationsProvider);
     // Reminders that came due while away count as new activity now.
     _ref.invalidate(unreadNotificationsProvider);

@@ -1,3 +1,6 @@
+import 'package:fantastic_guacamole/features/permissions/notification_permission_flow.dart';
+import 'package:fantastic_guacamole/state/providers/account_operation.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/core/extensions/string_extensions.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
@@ -8,11 +11,48 @@ import 'package:fantastic_guacamole/ui/widgets/plain/plain.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class NotificationsPage extends ConsumerWidget {
+class NotificationsPage extends ConsumerStatefulWidget {
   const NotificationsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotificationsPage> createState() => _NotificationsPageState();
+}
+
+class _NotificationsPageState extends ConsumerState<NotificationsPage> {
+  bool _recovering = false;
+
+  Future<void> _recover({required bool permissionDenied}) async {
+    if (_recovering) return;
+    setState(() => _recovering = true);
+    try {
+      if (permissionDenied) {
+        await turnOnNotifications(context, ref);
+      } else {
+        await ref
+            .read(settingsUiActionsProvider)
+            .refreshNotificationPermissionAndReminders();
+      }
+    } on StaleAccountOperation {
+      // The original account is no longer active.
+    } on Object {
+      if (!mounted) return;
+      final es = Localizations.localeOf(context).languageCode == 'es';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            es
+                ? 'No se pudieron comprobar los recordatorios. Inténtalo de nuevo.'
+                : 'Could not check reminders. Try again.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _recovering = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final DateTime now = DateTime.now();
     // Reminders older builds switched off before their time are not
     // activity.
@@ -45,6 +85,23 @@ class NotificationsPage extends ConsumerWidget {
         .where((item) => isNewNotificationActivity(item, now))
         .length;
 
+    final recoverable = items.where(
+      (item) =>
+          item.isEnabled &&
+          NotificationEntity.isReminderId(item.id) &&
+          notificationListStatus(item, now: now, registered: registered) ==
+              NotificationListStatus.notScheduled &&
+          item.scheduleResult != NotificationScheduleResult.unsupported,
+    );
+    final permissionDenied =
+        registered?.permissionGranted == false ||
+        (registered?.permissionGranted == null &&
+            recoverable.any(
+              (item) =>
+                  item.scheduleResult ==
+                  NotificationScheduleResult.permissionDenied,
+            ));
+
     return PlainScreen(
       children: <Widget>[
         _Header(
@@ -54,6 +111,26 @@ class NotificationsPage extends ConsumerWidget {
           onBack: () => Navigator.of(context).pop(),
         ),
         const SizedBox(height: 16),
+        if (permissionDenied && recoverable.isEmpty)
+          Text(
+            es
+                ? 'Las notificaciones de Axiomara están desactivadas.'
+                : 'Notifications are off for Axiomara.',
+            style: const TextStyle(color: Colors.white70),
+          ),
+        if (permissionDenied || recoverable.isNotEmpty)
+          TextButton(
+            onPressed: _recovering
+                ? null
+                : () async => _recover(permissionDenied: permissionDenied),
+            child: Text(
+              _recovering
+                  ? (es ? 'Comprobando recordatorios…' : 'Checking reminders…')
+                  : permissionDenied
+                  ? (es ? 'Activar notificaciones' : 'Turn on notifications')
+                  : (es ? 'Reintentar recordatorios' : 'Retry reminders'),
+            ),
+          ),
         if (automations.isLoading) const LinearProgressIndicator(),
         if (automations.hasError)
           TextButton(
