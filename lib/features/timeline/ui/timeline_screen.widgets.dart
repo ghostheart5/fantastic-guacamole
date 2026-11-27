@@ -452,6 +452,18 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
               ),
             if (_isProjectedTask)
               OutlinedButton.icon(
+                onPressed: _busy ? null : _exportTask,
+                icon: const Icon(Icons.calendar_month_outlined, size: 16),
+                label: Text(
+                  journeyText(
+                    context,
+                    'Export to calendar',
+                    'Exportar al calendario',
+                  ),
+                ),
+              ),
+            if (_isProjectedTask)
+              OutlinedButton.icon(
                 onPressed: _busy ? null : _confirmDeleteTask,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.recallRed,
@@ -549,6 +561,72 @@ class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
           _busy = false;
         });
       }
+    }
+  }
+
+  Future<void> _exportTask() async {
+    final String? taskId = widget.event.relatedId;
+    if (_busy || taskId == null) return;
+    final boundary = ref.read(authSessionBoundaryProvider);
+    bool isCurrent() {
+      if (!mounted) return false;
+      final current = ref.read(authSessionBoundaryProvider);
+      return current.generation == boundary.generation &&
+          current.userId == boundary.userId &&
+          current.isStorageReady &&
+          !current.isTransitioning &&
+          current.blockingIssue == null;
+    }
+
+    if (!isCurrent()) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final task = await ref
+          .read(domainTaskRepositoryProvider)
+          .getTaskById(taskId);
+      if (!mounted || !isCurrent()) return;
+      final file = task == null
+          ? null
+          : taskCalendarFile(task, generatedAt: DateTime.now());
+      if (file == null) {
+        setState(
+          () => _error = journeyText(
+            context,
+            'This task no longer has a date to export.',
+            'Esta tarea ya no tiene una fecha para exportar.',
+          ),
+        );
+        return;
+      }
+      final box = context.findRenderObject() as RenderBox?;
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [
+            XFile.fromData(
+              Uint8List.fromList(utf8.encode(file)),
+              mimeType: 'text/calendar',
+            ),
+          ],
+          fileNameOverrides: const ['axiomara-task.ics'],
+          sharePositionOrigin: box == null
+              ? null
+              : box.localToGlobal(Offset.zero) & box.size,
+        ),
+      );
+    } catch (_) {
+      if (!mounted || !isCurrent()) return;
+      setState(
+        () => _error = journeyText(
+          context,
+          'Could not export this task. Try again.',
+          'No se pudo exportar esta tarea. Int?ntalo de nuevo.',
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 

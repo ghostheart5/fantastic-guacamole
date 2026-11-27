@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:intl/intl.dart';
 import 'package:fantastic_guacamole/features/permissions/task_reminder_permission.dart';
@@ -9,6 +12,7 @@ import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/features/timeline/logic/task_calendar_file.dart';
 import 'package:fantastic_guacamole/features/timeline/logic/timeline_projection.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -23,6 +27,7 @@ import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:fantastic_guacamole/ui/widgets/plain/plain.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 part 'timeline_screen.widgets.dart';
 part 'timeline_screen.source_notice.dart';
