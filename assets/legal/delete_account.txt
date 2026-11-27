@@ -20,7 +20,7 @@ Request deletion without the app
 
 Email from the address connected to the account when possible. State that you want your Axiomara account and associated data deleted. Limited identity verification may be required.
 
-Request account deletion at ghostheart131517@gmail.com
+Request account deletion at signal@myghostheart.com
 
 Never send a password, one-time code, recovery token, payment credential, or secret key.
 

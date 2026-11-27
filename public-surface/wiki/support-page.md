@@ -8,7 +8,7 @@ Axiomara's authoritative public Support page is published at:
 
 This Wiki page is a directory reference only. It does not replace the published Support page.
 
-For account, purchase, privacy, tester, or technical support, contact **ghostheart131517@gmail.com**.
+For account, purchase, privacy, tester, or technical support, contact **signal@myghostheart.com**.
 
 ## Include in a technical request
 
