@@ -154,9 +154,8 @@ void main() {
     () {
       final text = File(platformPath).readAsStringSync();
       for (final entry in const {
-        'dbus': '0.7.15',
-        'nm': '0.5.0',
-        'gtk': '2.2.0',
+        'dbus': '0.8.1',
+        'nm': '0.6.0',
       }.entries) {
         expect((packages[entry.key] as YamlMap)['version'], entry.value);
         expect(text, contains('${entry.key} ${entry.value} (MPL 2.0)'));
