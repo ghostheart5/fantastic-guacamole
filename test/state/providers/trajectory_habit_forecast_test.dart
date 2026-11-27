@@ -204,13 +204,13 @@ void main() {
     await pumpEventQueue();
     expect(container.read(trajectoryConsequenceProvider).hasValue, isTrue);
     expect(
-      container.exists(
+      container.read(
         trajectoryHabitSourceForAccountProvider(
           trajectoryHabitAccountKey(
             container.read(trajectoryLiveAccountProvider).v2Namespace,
             1,
           ),
-        ),
+        ).exists,
       ),
       isFalse,
     );

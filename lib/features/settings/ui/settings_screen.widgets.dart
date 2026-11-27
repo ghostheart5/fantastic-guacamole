@@ -625,7 +625,7 @@ class _NeonStatusTile extends StatelessWidget {
                       ? TextOverflow.visible
                       : TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white38,
+                    color: Colors.white70,
                     fontSize: 11,
                     height: 1.35,
                   ),

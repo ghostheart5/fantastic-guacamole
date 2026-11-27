@@ -1776,6 +1776,11 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Efectos de sonido'), findsOneWidget);
+    final Text permissionStatus = tester.widget<Text>(
+      find.textContaining('recordatorios puede aparecer'),
+    );
+    expect(permissionStatus.style?.color, Colors.white70);
+    expect(permissionStatus.maxLines, isNull);
     expect(find.text('APPEARANCE & PERMISSIONS'), findsNothing);
     expect(find.text('Dark Mode'), findsNothing);
 
