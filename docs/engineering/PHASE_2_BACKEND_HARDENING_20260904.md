@@ -69,7 +69,7 @@ Reference: [Firebase App Check service coverage](https://firebase.google.com/doc
 
 Browser account: the owner Google account, project `chronospark-app`, number
 `956622397052`. The installed Firebase CLI instead lists
-`ghostheart131517@gmail.com`; it was not switched or used to modify this project.
+the owner's personal Gmail (removed); it was not switched or used to modify this project.
 Live browser-visible key strings were hashed in memory and not printed or saved.
 All three full SHA-256 fingerprints match the local client configuration.
 
@@ -467,7 +467,7 @@ reused, without changing model/reasoning settings. The remaining restriction and
 provider gates were reviewed against current official documentation; completed
 test suites and production changes were not repeated.
 
-Fresh provider Console readback shows `ghostheart131517@gmail.com`, Dom's
+Fresh provider Console readback shows the owner's personal Gmail (removed), Dom's
 Individual Org, only the Default workspace, and **API keys 0**. The page still
 offers Evaluation access and billing setup. This is not evidence identifying or
 revoking the previously disclosed key, and it supplies no replacement-key ID.
@@ -553,7 +553,7 @@ run, commit or push occurred in this completion attempt.
 
 After the owner signed in again, live account readback confirmed
 the owner Google account, not the earlier
-`ghostheart131517@gmail.com` session. The Default workspace still showed zero
+the owner's personal Gmail (removed) session. The Default workspace still showed zero
 keys, but that workspace-only result was incomplete for organization-scoped
 credentials. Organization settings > API keys, with Created by Anyone, Type All,
 Status All and Workspace All, showed one key:
