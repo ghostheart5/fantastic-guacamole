@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -24,6 +25,7 @@ void main() {
       permissionGranted: true,
     ),
     bool osListPending = false,
+    Future<void> Function()? recover,
     Size size = const Size(1200, 2400),
     ThemeData? theme,
     double textScale = 1,
@@ -39,6 +41,10 @@ void main() {
 
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        if (recover != null)
+          settingsUiActionsProvider.overrideWith(
+            (ref) => _RecoveryActions(ref, recover),
+          ),
         notificationProvider.overrideWith(() => _StaticNotifications(items)),
         automationNotificationsProvider.overrideWith((ref) async => repeating),
         registeredRemindersProvider.overrideWith(
@@ -367,9 +373,40 @@ void main() {
       ]);
 
       expect(find.textContaining(label), findsOneWidget);
+      expect(
+        find.text('Retry reminders'),
+        result == NotificationScheduleResult.failed
+            ? findsOneWidget
+            : findsNothing,
+      );
       expect(find.textContaining('Scheduled ·'), findsNothing);
     });
   }
+
+  testWidgets('retry calls the existing recovery once while it is running', (
+    tester,
+  ) async {
+    final pending = Completer<void>();
+    var calls = 0;
+    await pumpNotifications(
+      tester,
+      [goalDueTomorrow(result: NotificationScheduleResult.failed)],
+      recover: () {
+        calls++;
+        return pending.future;
+      },
+    );
+
+    await tester.tap(find.text('Retry reminders'));
+    await tester.pump();
+    expect(calls, 1);
+    final checking = find.widgetWithText(TextButton, 'Checking reminders…');
+    expect(tester.widget<TextButton>(checking).onPressed, isNull);
+
+    pending.complete();
+    await tester.pump();
+    expect(find.text('Retry reminders'), findsOneWidget);
+  });
 
   testWidgets('a reminder the OS no longer holds is not shown as Scheduled', (
     tester,
@@ -392,6 +429,8 @@ void main() {
       find.textContaining('Not scheduled: notifications are off'),
       findsOneWidget,
     );
+    expect(find.text('Turn on notifications'), findsOneWidget);
+    expect(find.text('Retry reminders'), findsNothing);
     expect(find.textContaining('Scheduled ·'), findsNothing);
   });
 
@@ -542,4 +581,13 @@ class _StaticNotifications extends NotificationNotifier {
 
   @override
   List<NotificationEntity> build() => _items;
+}
+
+class _RecoveryActions extends SettingsUiActions {
+  _RecoveryActions(super.ref, this.recover);
+
+  final Future<void> Function() recover;
+
+  @override
+  Future<void> refreshNotificationPermissionAndReminders() => recover();
 }
