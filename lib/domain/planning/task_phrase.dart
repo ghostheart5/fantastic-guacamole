@@ -1,3 +1,5 @@
+// CHRONOSPARK-CLASS: SHIPPING | Feature: Natural-language task drafting
+
 /// Recognizes a single explicit relative date at the end of a task phrase.
 ({String title, DateTime dueDate})? parseTaskPhrase(
   String phrase, {
