@@ -31,6 +31,9 @@ class CreatorScreen extends ConsumerWidget {
       creatorDraftPreviewProvider,
     );
     final CreatorHandshakeState handshake = ref.watch(creatorHandshakeProvider);
+    final accountGeneration = ref.watch(
+      authSessionBoundaryProvider.select((state) => state.generation),
+    );
     final CreatorFormKind navigationType = ref.watch(
       creatorNavigationIntentProvider,
     );
@@ -233,7 +236,7 @@ class CreatorScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(8),
                     child: DynamicForm(
                       key: ValueKey<String>(
-                        'creator-form-${handshake.formRevision}-${handshake.receipt == null ? 'draft' : 'saved'}',
+                        'creator-form-$accountGeneration-${handshake.formRevision}-${handshake.receipt == null ? 'draft' : 'saved'}',
                       ),
                       initialType: initialType,
                       activeGoals: ref.watch(goalsProvider),

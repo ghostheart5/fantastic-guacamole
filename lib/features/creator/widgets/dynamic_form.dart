@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/domain/planning/task_phrase.dart';
+import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/ui/widgets/dropdown_route_keyboard_guard.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
@@ -289,6 +291,11 @@ class _DynamicFormState extends State<DynamicForm> {
                 : null,
             maxLines: 1,
           ),
+          if (_type == CreatorFormKind.task &&
+              !widget.guidedFirstTask &&
+              widget.initialDraftId == null &&
+              _dueDate == null)
+            _taskPhraseAction(),
           const SizedBox(height: 10),
           if (_type == CreatorFormKind.note || widget.guidedFirstTask)
             _buildTextField(
@@ -332,7 +339,9 @@ class _DynamicFormState extends State<DynamicForm> {
                 tilePadding: EdgeInsets.zero,
                 title: Text(_copy.taskOptions),
                 subtitle: Text(
-                  _copy.taskOptionsHint,
+                  _dueDate == null
+                      ? _copy.taskOptionsHint
+                      : "${_copy.deadline}: ${MaterialLocalizations.of(context).formatMediumDate(_dueDate!)}",
                   style: const TextStyle(color: Colors.white70),
                 ),
                 children: _buildTaskFields(),
@@ -370,6 +379,42 @@ class _DynamicFormState extends State<DynamicForm> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _taskPhraseAction() {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: _titleController,
+      builder: (context, value, _) {
+        final spanish = ChronoSparkLocalizations.of(context).isSpanish;
+        final draft = parseTaskPhrase(
+          value.text,
+          now: DateTime.now(),
+          spanish: spanish,
+        );
+        if (draft == null) return const SizedBox.shrink();
+        return TextButton(
+          onPressed: _submitting
+              ? null
+              : () {
+                  final current = parseTaskPhrase(
+                    _titleController.text,
+                    now: DateTime.now(),
+                    spanish: spanish,
+                  );
+                  if (current == null || _dueDate != null) return;
+                  _titleController.text = current.title;
+                  setState(() => _dueDate = current.dueDate);
+                },
+          child: Text(
+            journeyText(
+              context,
+              'Use date in title',
+              'Usar la fecha del título',
+            ),
+          ),
+        );
+      },
     );
   }
 
