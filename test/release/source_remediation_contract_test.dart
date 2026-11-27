@@ -125,10 +125,10 @@ void main() {
       contains('quote, reserve, settle, retry, and reconcile credits'),
     );
     expect(bundled, isNot(contains('contained public configuration')));
-    expect(bundled, contains('ghostheart131517@gmail.com'));
+    expect(bundled, contains('signal@myghostheart.com'));
     expect(
       read('lib/config/env.dart'),
-      contains("supportEmail = 'ghostheart131517@gmail.com'"),
+      contains("supportEmail = 'signal@myghostheart.com'"),
     );
     expect(
       read('lib/features/settings/ui/settings_screen.dart'),
@@ -147,7 +147,7 @@ void main() {
   });
 
   test('all checked-in support and deletion surfaces use one mailbox', () {
-    const String canonical = 'ghostheart131517@gmail.com';
+    const String canonical = 'signal@myghostheart.com';
     const String retired = 'support@chronospark.app';
     expect(read('lib/config/env.dart'), contains(canonical));
     expect(

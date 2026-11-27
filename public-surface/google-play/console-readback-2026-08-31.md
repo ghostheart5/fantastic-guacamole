@@ -4,7 +4,7 @@ Read-only inspection on August 31, 2026.
 
 ## Account and app
 
-- Developer account: `RocketDUDE55` (personal account)
+- Developer account: the owner's personal Play account (name removed)
 - App: ChronoSpark
 - Package: `com.ghostheart5.chronospark`
 - App status: Closed testing
@@ -29,7 +29,7 @@ Two empty draft releases also exist: Internal testing and Closed testing - `chro
 
 - Default language: English (United States)
 - Category: Productivity
-- Contact email: `ghostheart131517@gmail.com`
+- Contact email: the owner's personal Gmail (removed)
 - Contact website: blank
 - External marketing: on
 - App icon: present
