@@ -383,6 +383,23 @@ void main() {
     });
   }
 
+  testWidgets('permission recovery is available with an empty list', (
+    tester,
+  ) async {
+    await pumpNotifications(
+      tester,
+      [],
+      registered: const RegisteredReminders(
+        ids: <String>{},
+        permissionGranted: false,
+      ),
+    );
+
+    expect(find.text('Notifications are off for Axiomara.'), findsOneWidget);
+    expect(find.text('Turn on notifications'), findsOneWidget);
+    expect(find.text('Retry reminders'), findsNothing);
+  });
+
   testWidgets('retry calls the existing recovery once while it is running', (
     tester,
   ) async {

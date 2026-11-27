@@ -111,7 +111,14 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
           onBack: () => Navigator.of(context).pop(),
         ),
         const SizedBox(height: 16),
-        if (recoverable.isNotEmpty)
+        if (permissionDenied && recoverable.isEmpty)
+          Text(
+            es
+                ? 'Las notificaciones de Axiomara están desactivadas.'
+                : 'Notifications are off for Axiomara.',
+            style: const TextStyle(color: Colors.white70),
+          ),
+        if (permissionDenied || recoverable.isNotEmpty)
           TextButton(
             onPressed: _recovering
                 ? null
