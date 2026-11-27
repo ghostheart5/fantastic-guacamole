@@ -28,7 +28,7 @@ void main() {
       final result = await container.read(rhythmPlanningProvider.future);
       expect(result.single.habit.id, 'walk');
       expect(result.single.needsAttention, isTrue);
-      expect(container.exists(habitsProvider), isFalse);
+      expect(container.read(habitsProvider.exists), isFalse);
       expect(repository.writes, 0);
     },
   );

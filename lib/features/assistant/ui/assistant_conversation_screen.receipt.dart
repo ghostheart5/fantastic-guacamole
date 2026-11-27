@@ -186,7 +186,7 @@ extension _ReplyReceipt on _AssistantConversationScreenState {
   /// Known only from the connection status the app shell keeps running;
   /// Chat never starts it. Unknown is not treated as offline.
   bool get _offline =>
-      ref.exists(networkStatusProvider) &&
+      ref.read(networkStatusProvider.exists) &&
       ref.read(networkInterfaceAvailabilityProvider) ==
           NetworkInterfaceAvailability.unavailable;
 
