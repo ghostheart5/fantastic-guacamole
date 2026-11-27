@@ -337,7 +337,7 @@ void main() {
           _balanceText(tester),
           es ? 'Tu saldo: 15 créditos' : 'Your balance: 15 credits',
         );
-        expect(container.exists(aiCreditWalletProvider), isFalse);
+        expect(container.read(aiCreditWalletProvider.exists), isFalse);
 
         // Saved with the chat: a fresh screen shows the same footers.
         await tester.pumpWidget(const SizedBox.shrink());
