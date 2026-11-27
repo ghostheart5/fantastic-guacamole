@@ -6,6 +6,8 @@ import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/policies/person_context_behavior_policy.dart';
+import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
+import 'package:fantastic_guacamole/domain/trajectory/trajectory_calibration_adjustment.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
 import 'package:fantastic_guacamole/engine/trajectory/future_consequence_engine.dart';
@@ -16,6 +18,7 @@ import 'package:fantastic_guacamole/state/providers/execution_signals_provider.d
 import 'package:fantastic_guacamole/state/providers/person_context_provider.dart';
 import 'package:fantastic_guacamole/state/providers/progression_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
+import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final futureConsequenceEngineProvider = Provider<FutureConsequenceEngine>(
@@ -140,6 +143,11 @@ final trajectoryConsequenceProvider =
         personContext,
       );
       final int horizonDays = ref.watch(trajectoryHorizonDaysProvider);
+      // Recorded accuracy for this account; provisional while it loads, so
+      // the comparison is never blocked or delayed by the ledger.
+      final TrajectoryCalibrationAdjustment calibration = ref.watch(
+        trajectoryCalibrationAdjustmentProvider,
+      );
       final TrajectoryBaseline baseline = _baseline(
         aggregation: aggregation,
         progression: progression,
@@ -147,6 +155,8 @@ final trajectoryConsequenceProvider =
         scope: scope,
         observedAt: now,
         personContext: personContext,
+        horizonDays: horizonDays,
+        calibration: calibration,
       );
       final List<TrajectoryIntervention> interventions =
           <TrajectoryIntervention>[
@@ -178,6 +188,7 @@ final trajectoryConsequenceProvider =
               baseline: baseline,
               interventions: interventions,
               generatedAt: now,
+              calibration: calibration,
             ),
       );
     });
@@ -207,11 +218,11 @@ TrajectoryIntervention? _customIntervention(
       title: 'My scenario: complete ${subject.title}',
       horizon: Duration(days: horizonDays),
       description:
-          'Model this commitment as completed, then compare capacity, risk, goal timing, and Activity consequences.',
+          'Model this commitment as completed, then compare capacity, risk, goal timing, and progress consequences.',
       subjectId: subject.id,
       assumptions: <String>[
         'The commitment is completed without creating an unmodeled obligation.',
-        'Projected Activity effects remain informational until an outcome is recorded on Schedule.',
+        'Projected progress effects remain informational until an outcome is recorded on Schedule.',
         ...personContextAssumptions,
       ],
     ),
@@ -256,6 +267,8 @@ TrajectoryBaseline _baseline({
   required AccountStorageScope scope,
   required DateTime observedAt,
   required GovernedDecisionContext personContext,
+  required int horizonDays,
+  required TrajectoryCalibrationAdjustment calibration,
 }) {
   final DecisionRecommendation decision = aggregation.noContextPlanningDecision;
   final List<TrajectoryTaskNode> tasks = aggregation.tasks
@@ -267,6 +280,14 @@ TrajectoryBaseline _baseline({
           estimatedMinutes: task.estimatedDuration.inMinutes,
           goalId: task.goalId,
           dueAt: task.dueDate?.toUtc(),
+          // A whole-day deadline keeps its written calendar date.
+          dueDay: task.hasDateOnlyDeadline
+              ? DateTime(
+                  task.dueDate!.year,
+                  task.dueDate!.month,
+                  task.dueDate!.day,
+                )
+              : null,
           scheduledAt: task.scheduledFor?.toUtc(),
         ),
       )
@@ -314,7 +335,55 @@ TrajectoryBaseline _baseline({
         ),
       )
       .toList(growable: false);
+  final int noContextAvailable = decision.plan.capacity.availableMinutes;
+  final int noContextUnscheduled = decision.plan.capacity.unscheduledMinutes;
+  final int noContextFree =
+      (noContextAvailable - decision.plan.capacity.occupiedMinutes).clamp(
+        0,
+        noContextAvailable,
+      );
+  final int governedFree = personContext.capacityCapMinutes == null
+      ? noContextFree
+      : noContextFree.clamp(0, personContext.capacityCapMinutes!);
+  final int governedAvailable =
+      decision.plan.capacity.occupiedMinutes + governedFree;
+  final int governedUnscheduled =
+      noContextUnscheduled + (noContextFree - governedFree);
+  final PredictiveEvidenceOrigin freeOrigin =
+      decision.plan.capacity.windowOrigin;
+  // Daily free time for the forecast: one day's working window. Occupied
+  // time is not subtracted: the planner's blocks come from the tasks' own
+  // schedules, and those tasks are already counted as work. The value does
+  // not change with the time of day (the assumed workday is always one full
+  // 09:00-17:00 day, configured windows count whole).
+  final int dailyWindow =
+      (noContextAvailable / decision.plan.capacity.windowDays).round();
+  // A shared "capacity right now" limit holds back today only: the first day
+  // of every range counts min(window, limit), later days the whole window
+  // (FutureConsequenceEngine.freeMinutesOver).
+  final int dailyFree = dailyWindow;
+  final int firstDayFree = personContext.capacityCapMinutes == null
+      ? dailyWindow
+      : dailyWindow.clamp(0, personContext.capacityCapMinutes!);
+  final TrajectoryHorizonWorkload inRange =
+      FutureConsequenceEngine.horizonWorkload(
+        tasks: tasks,
+        now: observedAt,
+        horizonDays: horizonDays,
+        completedLast7Days: execution.completed7d,
+      );
+  final TrajectoryHorizonWorkload nextSevenDays = horizonDays == 7
+      ? inRange
+      : FutureConsequenceEngine.horizonWorkload(
+          tasks: tasks,
+          now: observedAt,
+          horizonDays: 7,
+          completedLast7Days: execution.completed7d,
+        );
   final Map<String, String> revisions = <String, String>{
+    'horizon': '$horizonDays',
+    // The limit itself is part of person_context_trajectory below.
+    'daily_free': '$dailyFree:${freeOrigin.name}',
     'tasks': '${tasks.length}',
     'goals': '${goals.length}',
     'timeline': '${timeline.length}',
@@ -330,29 +399,25 @@ TrajectoryBaseline _baseline({
       GovernedDecisionContextStatus.knownEmpty => 'available_empty',
       GovernedDecisionContextStatus.applied => personContext.revision,
     },
+    // A rule from recorded accuracy makes this a different comparison.
+    if (!calibration.isProvisional) 'calibration': calibration.revision,
   };
-  final int noContextAvailable = decision.plan.capacity.availableMinutes;
-  final int noContextUnscheduled = decision.plan.capacity.unscheduledMinutes;
-  final int noContextFree =
-      (noContextAvailable - decision.plan.capacity.occupiedMinutes).clamp(
-        0,
-        noContextAvailable,
-      );
-  final int governedFree = personContext.capacityCapMinutes == null
-      ? noContextFree
-      : noContextFree.clamp(0, personContext.capacityCapMinutes!);
-  final int governedAvailable =
-      decision.plan.capacity.occupiedMinutes + governedFree;
-  final int governedUnscheduled =
-      noContextUnscheduled + (noContextFree - governedFree);
   return TrajectoryBaseline(
     accountScope: scope.v2Namespace ?? 'signed-out',
     revision:
-        'trajectory-v3-${_stableHash(<String>[scope.v2Namespace ?? 'signed-out', ...revisions.entries.map((MapEntry<String, String> item) => '${item.key}:${item.value}'), ...tasks.map((TrajectoryTaskNode task) => '${task.id}:${task.dueAt?.toIso8601String() ?? '-'}:${task.estimatedMinutes}')].join('|'))}',
+        'trajectory-v4-${_stableHash(<String>[scope.v2Namespace ?? 'signed-out', ...revisions.entries.map((MapEntry<String, String> item) => '${item.key}:${item.value}'), ...tasks.map((TrajectoryTaskNode task) => '${task.id}:${task.dueAt?.toIso8601String() ?? '-'}:${task.estimatedMinutes}')].join('|'))}',
     observedAt: observedAt,
     evidenceWindow: const Duration(days: 7),
     momentum: (aggregation.trajectory.momentum * 100).round().clamp(0, 100),
-    pressure: aggregation.trajectory.pressureIndex.clamp(0, 100),
+    // Forecast-local workload: the share of the next 7 days' free time the
+    // work in those days needs. trajectorySummaryProvider.pressureIndex is
+    // shared with other systems and is deliberately not used here.
+    pressure: FutureConsequenceEngine.capacityLoad(
+      requiredMinutes: nextSevenDays.requiredMinutes,
+      dailyFreeMinutes: dailyFree,
+      firstDayFreeMinutes: firstDayFree,
+      days: 7,
+    ),
     energy: (aggregation.siState.energy * 100).round().clamp(0, 100),
     completedInWindow: execution.completed7d,
     deferredInWindow: execution.skipped7d + execution.delayed7d,
@@ -380,8 +445,34 @@ TrajectoryBaseline _baseline({
         personContext.trace?.toJson() ?? const <String, Object?>{},
     energyOrigin: aggregation.siState.energyOrigin,
     availabilityOrigin: decision.plan.capacity.windowOrigin,
+    horizonDays: horizonDays,
+    pressureInHorizon: FutureConsequenceEngine.capacityLoad(
+      requiredMinutes: inRange.requiredMinutes,
+      dailyFreeMinutes: dailyFree,
+      firstDayFreeMinutes: firstDayFree,
+      days: horizonDays,
+    ),
+    dailyFreeMinutes: dailyFree,
+    firstDayFreeMinutes: firstDayFree,
+    dailyFreeOrigin: freeOrigin,
+    tasksInHorizon: inRange.taskCount,
+    requiredMinutesInHorizon: inRange.requiredMinutes,
+    expectedCompletionsInHorizon: inRange.expectedCompletions,
+    assumptions: <String>[
+      if (freeOrigin != PredictiveEvidenceOrigin.observed)
+        trajectoryAssumedWorkdayAssumption,
+      if (inRange.undatedTasks > 0) trajectoryUndatedTasksAssumption,
+    ],
   );
 }
+
+/// Recorded when the planner had no configured working hours.
+const String trajectoryAssumedWorkdayAssumption =
+    'Free time is based on an assumed workday because no working hours are set.';
+
+/// Recorded when undated tasks are counted in the chosen range.
+const String trajectoryUndatedTasksAssumption =
+    'Tasks without a date are counted in every time range.';
 
 List<TrajectoryIntervention> _interventions(
   DecisionRecommendation decision,

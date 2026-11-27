@@ -1,4 +1,4 @@
-# The Activity destination preserves the recorded progression review.
+# Patterns (recorded history) sits inside the Insights tab beside Future outcomes.
 appId: com.ghostheart5.chronospark
 tags:
   - core
@@ -9,7 +9,14 @@ tags:
 - runFlow:
     file: ../subflows/open-from-nexus.yaml
     env:
-      TARGET: "Activity"
-- assertVisible: 'Your recorded progress'
-- assertVisible: 'Activity'
-- assertVisible: 'Review completed tasks and recorded milestones. You can start again at any time.'
+      TARGET: "Patterns"
+- assertVisible: 'Patterns'
+- assertVisible: 'Future outcomes'
+# The Patterns screen's own subtitle. The Tools map row for Patterns uses the
+# same words, but that row is not on screen once Patterns is open, so seeing
+# it here means Patterns opened (the tab bar also says Insights, so that
+# label would not prove it).
+- assertVisible: 'Review your recorded history: tasks, habits and streaks'
+# The two-part switch moves to the other destination of the Insights tab.
+- tapOn: 'Future outcomes'
+- assertVisible: 'These are estimates, not promises.'

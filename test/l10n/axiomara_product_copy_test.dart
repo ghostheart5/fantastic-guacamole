@@ -102,10 +102,15 @@ void main() {
         }
         expect(status, isNot(contains('Evidence Lens')));
         final help = copy.shortcutHelp(filter: '');
-        for (final old in ['/timeline', '/trajectory', '/progression']) {
+        for (final old in [
+          '/timeline',
+          '/trajectory',
+          '/progression',
+          '/activity',
+        ]) {
           expect(help, isNot(contains(old)));
         }
-        for (final current in ['/schedule', '/insights', '/activity']) {
+        for (final current in ['/schedule', '/insights', '/patterns']) {
           expect(help, contains(current));
         }
         expect(
@@ -124,7 +129,19 @@ void main() {
           copy.shortcutLabel(
             SIConsoleShortcutRegistry.parse('/progression').definition!,
           ),
-          spanish ? 'Actividad' : 'Activity',
+          spanish ? 'Patrones' : 'Patterns',
+        );
+        // /patterns answers about level, XP and streaks in Chat; it does not
+        // open the Patterns screen, and its description says so.
+        expect(
+          copy.shortcutDescription(
+            SIConsoleShortcutRegistry.parse('/patterns').definition!,
+          ),
+          spanish
+              ? 'preguntar aquí por tu nivel, XP y rachas; tus patrones '
+                    'registrados están en Perspectivas'
+              : 'ask here about your level, XP and streaks; your recorded '
+                    'patterns are in Insights',
         );
       }
       expect(SIV2Source.timeline.label, 'Schedule');
@@ -179,7 +196,7 @@ void main() {
       AppView.creator: 'Add something',
       AppView.smartPlanner: 'Choose a step',
       AppView.console: 'Chat',
-      AppView.progression: 'Activity',
+      AppView.progression: 'Patterns',
       AppView.settings: 'Settings',
     };
     final Map<AppView, String> expectedSpanish = <AppView, String>{
@@ -190,7 +207,7 @@ void main() {
       AppView.creator: 'Añadir algo',
       AppView.smartPlanner: 'Elegir un paso',
       AppView.console: 'Chat',
-      AppView.progression: 'Actividad',
+      AppView.progression: 'Patrones',
       AppView.settings: 'Ajustes',
     };
 

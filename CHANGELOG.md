@@ -15,7 +15,7 @@ These changes are not yet released or verified on a device.
 - Automatic backup keeps your full cloud backup up to date, and Settings shows when the last backup happened.
 - Turning Cloud Backup on now includes saving your recovery key, with a way to start over if the key is lost. This needs a server update before it can be used.
 - Moving around the app closes screens that were covering where you are going, and "Review my day in detail" has a Back button.
-- "My patterns & progress" keeps the tab bar, and Back returns to Insights.
+- Patterns keeps the tab bar and sits inside the Insights tab.
 - Skipping setup now tells you the guide is off and how to restart it.
 - A paid AI reply is kept if you leave the screen while it is being answered.
 - First-run test flows and device journeys are updated for the current app.
@@ -62,6 +62,13 @@ These changes are not yet released or verified on a device.
 - Plans and credits now says "AI chat credit plans".
 - The old assistant code that the app no longer used is removed.
 - Server changes are written, with tests, but not deployed yet, and the database change has not been run yet: record text is kept out of the AI's instructions, the reply filter removes only the sentence at fault, refunded requests do not count toward the daily limit, and reply reports are blanked after 180 days.
+- The Insights tab has two parts: Patterns, which shows what you recorded, and Future outcomes, which shows estimates. A switch at the top moves between them, and the tab opens on Future outcomes.
+- Future outcomes estimates now use the time range you pick (7, 30 or 90 days) and your free time from your working hours. Workload is the share of that free time the tasks in the range need, so the numbers may differ from before. They are estimates, not promises.
+- A "capacity right now" limit you share counts for today only, not for every day of the range.
+- The "keep going" forecast is recorded automatically on this device, at most once a day for 7 days and once a week for 30 and 90 days, and checked later against what you recorded. Recorded accuracy can widen or narrow the ranges. Nothing leaves this device.
+- Patterns shows streaks and consistency for each habit, how many tasks you finished, when you usually get things done, the work planned for the coming days and what was missed.
+- On Future outcomes, the button on an option opens the task it is about (Mark done… or Edit this task), Choose a step or Schedule. Nothing changes until you confirm.
+- The priority menu in the task editor no longer runs off the screen with large text.
 
 ## Future release entries
 

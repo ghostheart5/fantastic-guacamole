@@ -1,0 +1,1747 @@
+{
+  "fixture-7": {
+    "recommended": "trajectory-fixture-r1:planner",
+    "outcomes": [
+      {
+        "id": "trajectory-fixture-r1:planner",
+        "baselineRevision": "trajectory-fixture-r1",
+        "intervention": "planner",
+        "generatedAt": "2026-08-16T15:00:00.000Z",
+        "momentum": 67,
+        "pressure": 18,
+        "uncertainty": 15,
+        "calibrationMultiplier": 1.0,
+        "confidence": {
+          "sourceCompleteness": 0.92,
+          "freshness": 0.9025,
+          "sampleSufficiency": 0.75,
+          "intervalPrecision": 0.7,
+          "recommendationConfidence": 0.802,
+          "band": "high",
+          "calibration": "provisional"
+        },
+        "risk": {
+          "current": 29,
+          "projected": 22,
+          "band": "low",
+          "contributions": [
+            {
+              "code": "pressure",
+              "label": "Pressure load",
+              "current": 18,
+              "projected": 18,
+              "explanation": "Sustained pressure raises rollover and recovery risk."
+            },
+            {
+              "code": "deferral",
+              "label": "Deferral accumulation",
+              "current": 25,
+              "projected": 25,
+              "explanation": "Repeated deferrals compound uncertainty in future capacity."
+            },
+            {
+              "code": "deadline",
+              "label": "Deadline pressure",
+              "current": 8,
+              "projected": 8,
+              "explanation": "Crossed deadlines reduce slack and can displace other work."
+            },
+            {
+              "code": "capacity",
+              "label": "Capacity overload",
+              "current": 21,
+              "projected": 3,
+              "explanation": "Unscheduled work indicates that current commitments do not fit."
+            }
+          ]
+        },
+        "timeline": {
+          "affectedBlockIds": [
+            "block-launch"
+          ],
+          "displacedSubjectIds": [],
+          "deadlineCrossings": 0,
+          "minutesAdded": 90,
+          "summary": "1 Choose a step block(s) are projected; 0 commitment(s) remain displaced."
+        },
+        "goals": [
+          {
+            "goalId": "goal-release",
+            "goalTitle": "Release candidate",
+            "remainingMinutes": 150,
+            "confidence": {
+              "sourceCompleteness": 0.92,
+              "freshness": 0.9025,
+              "sampleSufficiency": 0.75,
+              "intervalPrecision": 0.7,
+              "recommendationConfidence": 0.802,
+              "band": "high",
+              "calibration": "provisional"
+            }
+          }
+        ],
+        "progression": {
+          "potentialXp": 0,
+          "streakProtected": true,
+          "summary": "No progress reward is projected from this intervention alone."
+        },
+        "evidence": [
+          "baseline_revision=trajectory-fixture-r1",
+          "observations=12",
+          "completed_window=6",
+          "deferred_window=3",
+          "available_minutes=420",
+          "no_context_available_minutes=420",
+          "occupied_minutes=300",
+          "unscheduled_minutes=90",
+          "no_context_unscheduled_minutes=90",
+          "subject=task-launch",
+          "horizon_days=7",
+          "daily_free_minutes=120",
+          "daily_free_origin=observed",
+          "tasks_in_horizon=2",
+          "required_minutes_in_horizon=150",
+          "expected_completions=0-2-2",
+          "tasks=2",
+          "goals=1",
+          "timeline=1",
+          "plan=1"
+        ],
+        "assumptions": [
+          "The protected block is attempted.",
+          "Goal dates assume your daily free time goes to the goal's remaining tasks; other work can push them later.",
+          "Only the declared intervention changes; unmodeled life events remain outside this scenario.",
+          "Projected XP is informational and is never awarded by this simulation."
+        ],
+        "explanation": "Protect the Smart Planner path changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is low; 1 Choose a step block(s) are projected; 0 commitment(s) remain displaced.",
+        "utility": 4.48,
+        "reliefMinutes": 0,
+        "modelVersion": "trajectory-consequence-v4"
+      },
+      {
+        "id": "trajectory-fixture-r1:maintain",
+        "baselineRevision": "trajectory-fixture-r1",
+        "intervention": "maintain",
+        "generatedAt": "2026-08-16T15:00:00.000Z",
+        "momentum": 61,
+        "pressure": 18,
+        "uncertainty": 15,
+        "calibrationMultiplier": 1.0,
+        "confidence": {
+          "sourceCompleteness": 0.92,
+          "freshness": 0.9025,
+          "sampleSufficiency": 0.75,
+          "intervalPrecision": 0.7,
+          "recommendationConfidence": 0.802,
+          "band": "high",
+          "calibration": "provisional"
+        },
+        "risk": {
+          "current": 29,
+          "projected": 29,
+          "band": "low",
+          "contributions": [
+            {
+              "code": "pressure",
+              "label": "Pressure load",
+              "current": 18,
+              "projected": 18,
+              "explanation": "Sustained pressure raises rollover and recovery risk."
+            },
+            {
+              "code": "deferral",
+              "label": "Deferral accumulation",
+              "current": 25,
+              "projected": 25,
+              "explanation": "Repeated deferrals compound uncertainty in future capacity."
+            },
+            {
+              "code": "deadline",
+              "label": "Deadline pressure",
+              "current": 8,
+              "projected": 8,
+              "explanation": "Crossed deadlines reduce slack and can displace other work."
+            },
+            {
+              "code": "capacity",
+              "label": "Capacity overload",
+              "current": 21,
+              "projected": 21,
+              "explanation": "Unscheduled work indicates that current commitments do not fit."
+            }
+          ]
+        },
+        "timeline": {
+          "affectedBlockIds": [],
+          "displacedSubjectIds": [],
+          "deadlineCrossings": 0,
+          "minutesAdded": 0,
+          "summary": "0 linked Schedule block(s) are affected."
+        },
+        "goals": [
+          {
+            "goalId": "goal-release",
+            "goalTitle": "Release candidate",
+            "remainingMinutes": 150,
+            "confidence": {
+              "sourceCompleteness": 0.92,
+              "freshness": 0.9025,
+              "sampleSufficiency": 0.75,
+              "intervalPrecision": 0.7,
+              "recommendationConfidence": 0.802,
+              "band": "high",
+              "calibration": "provisional"
+            }
+          }
+        ],
+        "progression": {
+          "potentialXp": 0,
+          "streakProtected": false,
+          "summary": "No progress reward is projected from this intervention alone."
+        },
+        "evidence": [
+          "baseline_revision=trajectory-fixture-r1",
+          "observations=12",
+          "completed_window=6",
+          "deferred_window=3",
+          "available_minutes=420",
+          "no_context_available_minutes=420",
+          "occupied_minutes=300",
+          "unscheduled_minutes=90",
+          "no_context_unscheduled_minutes=90",
+          "subject=portfolio",
+          "horizon_days=7",
+          "daily_free_minutes=120",
+          "daily_free_origin=observed",
+          "tasks_in_horizon=2",
+          "required_minutes_in_horizon=150",
+          "expected_completions=0-2-2",
+          "tasks=2",
+          "goals=1",
+          "timeline=1",
+          "plan=1"
+        ],
+        "assumptions": [
+          "Goal dates assume your daily free time goes to the goal's remaining tasks; other work can push them later.",
+          "Only the declared intervention changes; unmodeled life events remain outside this scenario.",
+          "Projected XP is informational and is never awarded by this simulation."
+        ],
+        "explanation": "Maintain current course changes the current portfolio against baseline trajectory-fixture-r1. Projected risk is low; 0 linked Schedule block(s) are affected.",
+        "utility": 0.0,
+        "reliefMinutes": 0,
+        "modelVersion": "trajectory-consequence-v4"
+      },
+      {
+        "id": "trajectory-fixture-r1:delay",
+        "baselineRevision": "trajectory-fixture-r1",
+        "intervention": "delay",
+        "generatedAt": "2026-08-16T15:00:00.000Z",
+        "momentum": 54,
+        "pressure": 18,
+        "uncertainty": 15,
+        "calibrationMultiplier": 1.0,
+        "confidence": {
+          "sourceCompleteness": 0.92,
+          "freshness": 0.9025,
+          "sampleSufficiency": 0.75,
+          "intervalPrecision": 0.7,
+          "recommendationConfidence": 0.802,
+          "band": "high",
+          "calibration": "provisional"
+        },
+        "risk": {
+          "current": 29,
+          "projected": 41,
+          "band": "watch",
+          "contributions": [
+            {
+              "code": "pressure",
+              "label": "Pressure load",
+              "current": 18,
+              "projected": 18,
+              "explanation": "Sustained pressure raises rollover and recovery risk."
+            },
+            {
+              "code": "deferral",
+              "label": "Deferral accumulation",
+              "current": 25,
+              "projected": 40,
+              "explanation": "Repeated deferrals compound uncertainty in future capacity."
+            },
+            {
+              "code": "deadline",
+              "label": "Deadline pressure",
+              "current": 8,
+              "projected": 30,
+              "explanation": "Crossed deadlines reduce slack and can displace other work."
+            },
+            {
+              "code": "capacity",
+              "label": "Capacity overload",
+              "current": 21,
+              "projected": 21,
+              "explanation": "Unscheduled work indicates that current commitments do not fit."
+            }
+          ]
+        },
+        "timeline": {
+          "affectedBlockIds": [
+            "block-launch"
+          ],
+          "displacedSubjectIds": [],
+          "deadlineCrossings": 1,
+          "minutesAdded": 90,
+          "summary": "1 existing block(s) are affected; 1 deadline crossing(s) are projected."
+        },
+        "goals": [
+          {
+            "goalId": "goal-release",
+            "goalTitle": "Release candidate",
+            "remainingMinutes": 150,
+            "confidence": {
+              "sourceCompleteness": 0.92,
+              "freshness": 0.9025,
+              "sampleSufficiency": 0.75,
+              "intervalPrecision": 0.7,
+              "recommendationConfidence": 0.802,
+              "band": "high",
+              "calibration": "provisional"
+            }
+          }
+        ],
+        "progression": {
+          "potentialXp": 0,
+          "streakProtected": false,
+          "summary": "No progress reward is projected from this intervention alone."
+        },
+        "evidence": [
+          "baseline_revision=trajectory-fixture-r1",
+          "observations=12",
+          "completed_window=6",
+          "deferred_window=3",
+          "available_minutes=420",
+          "no_context_available_minutes=420",
+          "occupied_minutes=300",
+          "unscheduled_minutes=90",
+          "no_context_unscheduled_minutes=90",
+          "subject=task-launch",
+          "horizon_days=7",
+          "daily_free_minutes=120",
+          "daily_free_origin=observed",
+          "tasks_in_horizon=2",
+          "required_minutes_in_horizon=150",
+          "expected_completions=0-2-2",
+          "tasks=2",
+          "goals=1",
+          "timeline=1",
+          "plan=1"
+        ],
+        "assumptions": [
+          "Goal dates assume your daily free time goes to the goal's remaining tasks; other work can push them later.",
+          "Only the declared intervention changes; unmodeled life events remain outside this scenario.",
+          "Projected XP is informational and is never awarded by this simulation."
+        ],
+        "explanation": "Delay the milestone changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is watch; 1 existing block(s) are affected; 1 deadline crossing(s) are projected.",
+        "utility": -10.3,
+        "reliefMinutes": 0,
+        "modelVersion": "trajectory-consequence-v4"
+      }
+    ]
+  },
+  "fixture-30": {
+    "recommended": "trajectory-fixture-r1:planner",
+    "outcomes": [
+      {
+        "id": "trajectory-fixture-r1:planner",
+        "baselineRevision": "trajectory-fixture-r1",
+        "intervention": "planner",
+        "generatedAt": "2026-08-16T15:00:00.000Z",
+        "momentum": 67,
+        "pressure": 4,
+        "uncertainty": 27,
+        "calibrationMultiplier": 1.0,
+        "confidence": {
+          "sourceCompleteness": 0.92,
+          "freshness": 0.7204166666666666,
+          "sampleSufficiency": 0.75,
+          "intervalPrecision": 0.45999999999999996,
+          "recommendationConfidence": 0.7055833333333332,
+          "band": "moderate",
+          "calibration": "provisional"
+        },
+        "risk": {
+          "current": 24,
+          "projected": 17,
+          "band": "low",
+          "contributions": [
+            {
+              "code": "pressure",
+              "label": "Pressure load",
+              "current": 4,
+              "projected": 4,
+              "explanation": "Sustained pressure raises rollover and recovery risk."
+            },
+            {
+              "code": "deferral",
+              "label": "Deferral accumulation",
+              "current": 25,
+              "projected": 25,
+              "explanation": "Repeated deferrals compound uncertainty in future capacity."
+            },
+            {
+              "code": "deadline",
+              "label": "Deadline pressure",
+              "current": 8,
+              "projected": 8,
+              "explanation": "Crossed deadlines reduce slack and can displace other work."
+            },
+            {
+              "code": "capacity",
+              "label": "Capacity overload",
+              "current": 21,
+              "projected": 3,
+              "explanation": "Unscheduled work indicates that current commitments do not fit."
+            }
+          ]
+        },
+        "timeline": {
+          "affectedBlockIds": [
+            "block-launch"
+          ],
+          "displacedSubjectIds": [],
+          "deadlineCrossings": 0,
+          "minutesAdded": 90,
+          "summary": "1 Choose a step block(s) are projected; 0 commitment(s) remain displaced."
+        },
+        "goals": [
+          {
+            "goalId": "goal-release",
+            "goalTitle": "Release candidate",
+            "remainingMinutes": 150,
+            "confidence": {
+              "sourceCompleteness": 0.92,
+              "freshness": 0.7204166666666666,
+              "sampleSufficiency": 0.75,
+              "intervalPrecision": 0.45999999999999996,
+              "recommendationConfidence": 0.7055833333333332,
+              "band": "moderate",
+              "calibration": "provisional"
+            }
+          }
+        ],
+        "progression": {
+          "potentialXp": 0,
+          "streakProtected": true,
+          "summary": "No progress reward is projected from this intervention alone."
+        },
+        "evidence": [
+          "baseline_revision=trajectory-fixture-r1",
+          "observations=12",
+          "completed_window=6",
+          "deferred_window=3",
+          "available_minutes=420",
+          "no_context_available_minutes=420",
+          "occupied_minutes=300",
+          "unscheduled_minutes=90",
+          "no_context_unscheduled_minutes=90",
+          "subject=task-launch",
+          "horizon_days=30",
+          "daily_free_minutes=120",
+          "daily_free_origin=observed",
+          "tasks_in_horizon=2",
+          "required_minutes_in_horizon=150",
+          "expected_completions=0-2-2",
+          "tasks=2",
+          "goals=1",
+          "timeline=1",
+          "plan=1"
+        ],
+        "assumptions": [
+          "The protected block is attempted.",
+          "Goal dates assume your daily free time goes to the goal's remaining tasks; other work can push them later.",
+          "Only the declared intervention changes; unmodeled life events remain outside this scenario.",
+          "Projected XP is informational and is never awarded by this simulation."
+        ],
+        "explanation": "Protect the Smart Planner path changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is low; 1 Choose a step block(s) are projected; 0 commitment(s) remain displaced.",
+        "utility": 4.48,
+        "reliefMinutes": 0,
+        "modelVersion": "trajectory-consequence-v4"
+      },
+      {
+        "id": "trajectory-fixture-r1:maintain",
+        "baselineRevision": "trajectory-fixture-r1",
+        "intervention": "maintain",
+        "generatedAt": "2026-08-16T15:00:00.000Z",
+        "momentum": 61,
+        "pressure": 4,
+        "uncertainty": 27,
+        "calibrationMultiplier": 1.0,
+        "confidence": {
+          "sourceCompleteness": 0.92,
+          "freshness": 0.7204166666666666,
+          "sampleSufficiency": 0.75,
+          "intervalPrecision": 0.45999999999999996,
+          "recommendationConfidence": 0.7055833333333332,
+          "band": "moderate",
+          "calibration": "provisional"
+        },
+        "risk": {
+          "current": 24,
+          "projected": 24,
+          "band": "low",
+          "contributions": [
+            {
+              "code": "pressure",
+              "label": "Pressure load",
+              "current": 4,
+              "projected": 4,
+              "explanation": "Sustained pressure raises rollover and recovery risk."
+            },
+            {
+              "code": "deferral",
+              "label": "Deferral accumulation",
+              "current": 25,
+              "projected": 25,
+              "explanation": "Repeated deferrals compound uncertainty in future capacity."
+            },
+            {
+              "code": "deadline",
+              "label": "Deadline pressure",
+              "current": 8,
+              "projected": 8,
+              "explanation": "Crossed deadlines reduce slack and can displace other work."
+            },
+            {
+              "code": "capacity",
+              "label": "Capacity overload",
+              "current": 21,
+              "projected": 21,
+              "explanation": "Unscheduled work indicates that current commitments do not fit."
+            }
+          ]
+        },
+        "timeline": {
+          "affectedBlockIds": [],
+          "displacedSubjectIds": [],
+          "deadlineCrossings": 0,
+          "minutesAdded": 0,
+          "summary": "0 linked Schedule block(s) are affected."
+        },
+        "goals": [
+          {
+            "goalId": "goal-release",
+            "goalTitle": "Release candidate",
+            "remainingMinutes": 150,
+            "confidence": {
+              "sourceCompleteness": 0.92,
+              "freshness": 0.7204166666666666,
+              "sampleSufficiency": 0.75,
+              "intervalPrecision": 0.45999999999999996,
+              "recommendationConfidence": 0.7055833333333332,
+              "band": "moderate",
+              "calibration": "provisional"
+            }
+          }
+        ],
+        "progression": {
+          "potentialXp": 0,
+          "streakProtected": false,
+          "summary": "No progress reward is projected from this intervention alone."
+        },
+        "evidence": [
+          "baseline_revision=trajectory-fixture-r1",
+          "observations=12",
+          "completed_window=6",
+          "deferred_window=3",
+          "available_minutes=420",
+          "no_context_available_minutes=420",
+          "occupied_minutes=300",
+          "unscheduled_minutes=90",
+          "no_context_unscheduled_minutes=90",
+          "subject=portfolio",
+          "horizon_days=30",
+          "daily_free_minutes=120",
+          "daily_free_origin=observed",
+          "tasks_in_horizon=2",
+          "required_minutes_in_horizon=150",
+          "expected_completions=0-2-2",
+          "tasks=2",
+          "goals=1",
+          "timeline=1",
+          "plan=1"
+        ],
+        "assumptions": [
+          "Goal dates assume your daily free time goes to the goal's remaining tasks; other work can push them later.",
+          "Only the declared intervention changes; unmodeled life events remain outside this scenario.",
+          "Projected XP is informational and is never awarded by this simulation."
+        ],
+        "explanation": "Maintain current course changes the current portfolio against baseline trajectory-fixture-r1. Projected risk is low; 0 linked Schedule block(s) are affected.",
+        "utility": 0.0,
+        "reliefMinutes": 0,
+        "modelVersion": "trajectory-consequence-v4"
+      },
+      {
+        "id": "trajectory-fixture-r1:delay",
+        "baselineRevision": "trajectory-fixture-r1",
+        "intervention": "delay",
+        "generatedAt": "2026-08-16T15:00:00.000Z",
+        "momentum": 54,
+        "pressure": 4,
+        "uncertainty": 27,
+        "calibrationMultiplier": 1.0,
+        "confidence": {
+          "sourceCompleteness": 0.92,
+          "freshness": 0.7204166666666666,
+          "sampleSufficiency": 0.75,
+          "intervalPrecision": 0.45999999999999996,
+          "recommendationConfidence": 0.7055833333333332,
+          "band": "moderate",
+          "calibration": "provisional"
+        },
+        "risk": {
+          "current": 24,
+          "projected": 37,
+          "band": "watch",
+          "contributions": [
+            {
+              "code": "pressure",
+              "label": "Pressure load",
+              "current": 4,
+              "projected": 4,
+              "explanation": "Sustained pressure raises rollover and recovery risk."
+            },
+            {
+              "code": "deferral",
+              "label": "Deferral accumulation",
+              "current": 25,
+              "projected": 40,
+              "explanation": "Repeated deferrals compound uncertainty in future capacity."
+            },
+            {
+              "code": "deadline",
+              "label": "Deadline pressure",
+              "current": 8,
+              "projected": 30,
+              "explanation": "Crossed deadlines reduce slack and can displace other work."
+            },
+            {
+              "code": "capacity",
+              "label": "Capacity overload",
+              "current": 21,
+              "projected": 21,
+              "explanation": "Unscheduled work indicates that current commitments do not fit."
+            }
+          ]
+        },
+        "timeline": {
+          "affectedBlockIds": [
+            "block-launch"
+          ],
+          "displacedSubjectIds": [],
+          "deadlineCrossings": 1,
+          "minutesAdded": 90,
+          "summary": "1 existing block(s) are affected; 1 deadline crossing(s) are projected."
+        },
+        "goals": [
+          {
+            "goalId": "goal-release",
+            "goalTitle": "Release candidate",
+            "remainingMinutes": 150,
+            "confidence": {
+              "sourceCompleteness": 0.92,
+              "freshness": 0.7204166666666666,
+              "sampleSufficiency": 0.75,
+              "intervalPrecision": 0.45999999999999996,
+              "recommendationConfidence": 0.7055833333333332,
+              "band": "moderate",
+              "calibration": "provisional"
+            }
+          }
+        ],
+        "progression": {
+          "potentialXp": 0,
+          "streakProtected": false,
+          "summary": "No progress reward is projected from this intervention alone."
+        },
+        "evidence": [
+          "baseline_revision=trajectory-fixture-r1",
+          "observations=12",
+          "completed_window=6",
+          "deferred_window=3",
+          "available_minutes=420",
+          "no_context_available_minutes=420",
+          "occupied_minutes=300",
+          "unscheduled_minutes=90",
+          "no_context_unscheduled_minutes=90",
+          "subject=task-launch",
+          "horizon_days=30",
+          "daily_free_minutes=120",
+          "daily_free_origin=observed",
+          "tasks_in_horizon=2",
+          "required_minutes_in_horizon=150",
+          "expected_completions=0-2-2",
+          "tasks=2",
+          "goals=1",
+          "timeline=1",
+          "plan=1"
+        ],
+        "assumptions": [
+          "Goal dates assume your daily free time goes to the goal's remaining tasks; other work can push them later.",
+          "Only the declared intervention changes; unmodeled life events remain outside this scenario.",
+          "Projected XP is informational and is never awarded by this simulation."
+        ],
+        "explanation": "Delay the milestone changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is watch; 1 existing block(s) are affected; 1 deadline crossing(s) are projected.",
+        "utility": -10.58,
+        "reliefMinutes": 0,
+        "modelVersion": "trajectory-consequence-v4"
+      }
+    ]
+  },
+  "fixture-90": {
+    "recommended": "trajectory-fixture-r1:planner",
+    "outcomes": [
+      {
+        "id": "trajectory-fixture-r1:planner",
+        "baselineRevision": "trajectory-fixture-r1",
+        "intervention": "planner",
+        "generatedAt": "2026-08-16T15:00:00.000Z",
+        "momentum": 67,
+        "pressure": 1,
+        "uncertainty": 42,
+        "calibrationMultiplier": 1.0,
+        "confidence": {
+          "sourceCompleteness": 0.92,
+          "freshness": 0.24541666666666662,
+          "sampleSufficiency": 0.75,
+          "intervalPrecision": 0.16000000000000003,
+          "recommendationConfidence": 0.5355833333333333,
+          "band": "moderate",
+          "calibration": "provisional"
+        },
+        "risk": {
+          "current": 23,
+          "projected": 16,
+          "band": "low",
+          "contributions": [
+            {
+              "code": "pressure",
+              "label": "Pressure load",
+              "current": 1,
+              "projected": 1,
+              "explanation": "Sustained pressure raises rollover and recovery risk."
+            },
+            {
+              "code": "deferral",
+              "label": "Deferral accumulation",
+              "current": 25,
+              "projected": 25,
+              "explanation": "Repeated deferrals compound uncertainty in future capacity."
+            },
+            {
+              "code": "deadline",
+              "label": "Deadline pressure",
+              "current": 8,
+              "projected": 8,
+              "explanation": "Crossed deadlines reduce slack and can displace other work."
+            },
+            {
+              "code": "capacity",
+              "label": "Capacity overload",
+              "current": 21,
+              "projected": 3,
+              "explanation": "Unscheduled work indicates that current commitments do not fit."
+            }
+          ]
+        },
+        "timeline": {
+          "affectedBlockIds": [
+            "block-launch"
+          ],
+          "displacedSubjectIds": [],
+          "deadlineCrossings": 0,
+          "minutesAdded": 90,
+          "summary": "1 Choose a step block(s) are projected; 0 commitment(s) remain displaced."
+        },
+        "goals": [
+          {
+            "goalId": "goal-release",
+            "goalTitle": "Release candidate",
+            "remainingMinutes": 150,
+            "confidence": {
+              "sourceCompleteness": 0.92,
+              "freshness": 0.24541666666666662,
+              "sampleSufficiency": 0.75,
+              "intervalPrecision": 0.16000000000000003,
+              "recommendationConfidence": 0.5355833333333333,
+              "band": "moderate",
+              "calibration": "provisional"
+            }
+          }
+        ],
+        "progression": {
+          "potentialXp": 0,
+          "streakProtected": true,
+          "summary": "No progress reward is projected from this intervention alone."
+        },
+        "evidence": [
+          "baseline_revision=trajectory-fixture-r1",
+          "observations=12",
+          "completed_window=6",
+          "deferred_window=3",
+          "available_minutes=420",
+          "no_context_available_minutes=420",
+          "occupied_minutes=300",
+          "unscheduled_minutes=90",
+          "no_context_unscheduled_minutes=90",
+          "subject=task-launch",
+          "horizon_days=90",
+          "daily_free_minutes=120",
+          "daily_free_origin=observed",
+          "tasks_in_horizon=2",
+          "required_minutes_in_horizon=150",
+          "expected_completions=0-2-2",
+          "tasks=2",
+          "goals=1",
+          "timeline=1",
+          "plan=1"
+        ],
+        "assumptions": [
+          "The protected block is attempted.",
+          "Goal dates assume your daily free time goes to the goal's remaining tasks; other work can push them later.",
+          "Only the declared intervention changes; unmodeled life events remain outside this scenario.",
+          "Projected XP is informational and is never awarded by this simulation."
+        ],
+        "explanation": "Protect the Smart Planner path changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is low; 1 Choose a step block(s) are projected; 0 commitment(s) remain displaced.",
+        "utility": 4.48,
+        "reliefMinutes": 0,
+        "modelVersion": "trajectory-consequence-v4"
+      },
+      {
+        "id": "trajectory-fixture-r1:maintain",
+        "baselineRevision": "trajectory-fixture-r1",
+        "intervention": "maintain",
+        "generatedAt": "2026-08-16T15:00:00.000Z",
+        "momentum": 61,
+        "pressure": 1,
+        "uncertainty": 42,
+        "calibrationMultiplier": 1.0,
+        "confidence": {
+          "sourceCompleteness": 0.92,
+          "freshness": 0.24541666666666662,
+          "sampleSufficiency": 0.75,
+          "intervalPrecision": 0.16000000000000003,
+          "recommendationConfidence": 0.5355833333333333,
+          "band": "moderate",
+          "calibration": "provisional"
+        },
+        "risk": {
+          "current": 23,
+          "projected": 23,
+          "band": "low",
+          "contributions": [
+            {
+              "code": "pressure",
+              "label": "Pressure load",
+              "current": 1,
+              "projected": 1,
+              "explanation": "Sustained pressure raises rollover and recovery risk."
+            },
+            {
+              "code": "deferral",
+              "label": "Deferral accumulation",
+              "current": 25,
+              "projected": 25,
+              "explanation": "Repeated deferrals compound uncertainty in future capacity."
+            },
+            {
+              "code": "deadline",
+              "label": "Deadline pressure",
+              "current": 8,
+              "projected": 8,
+              "explanation": "Crossed deadlines reduce slack and can displace other work."
+            },
+            {
+              "code": "capacity",
+              "label": "Capacity overload",
+              "current": 21,
+              "projected": 21,
+              "explanation": "Unscheduled work indicates that current commitments do not fit."
+            }
+          ]
+        },
+        "timeline": {
+          "affectedBlockIds": [],
+          "displacedSubjectIds": [],
+          "deadlineCrossings": 0,
+          "minutesAdded": 0,
+          "summary": "0 linked Schedule block(s) are affected."
+        },
+        "goals": [
+          {
+            "goalId": "goal-release",
+            "goalTitle": "Release candidate",
+            "remainingMinutes": 150,
+            "confidence": {
+              "sourceCompleteness": 0.92,
+              "freshness": 0.24541666666666662,
+              "sampleSufficiency": 0.75,
+              "intervalPrecision": 0.16000000000000003,
+              "recommendationConfidence": 0.5355833333333333,
+              "band": "moderate",
+              "calibration": "provisional"
+            }
+          }
+        ],
+        "progression": {
+          "potentialXp": 0,
+          "streakProtected": false,
+          "summary": "No progress reward is projected from this intervention alone."
+        },
+        "evidence": [
+          "baseline_revision=trajectory-fixture-r1",
+          "observations=12",
+          "completed_window=6",
+          "deferred_window=3",
+          "available_minutes=420",
+          "no_context_available_minutes=420",
+          "occupied_minutes=300",
+          "unscheduled_minutes=90",
+          "no_context_unscheduled_minutes=90",
+          "subject=portfolio",
+          "horizon_days=90",
+          "daily_free_minutes=120",
+          "daily_free_origin=observed",
+          "tasks_in_horizon=2",
+          "required_minutes_in_horizon=150",
+          "expected_completions=0-2-2",
+          "tasks=2",
+          "goals=1",
+          "timeline=1",
+          "plan=1"
+        ],
+        "assumptions": [
+          "Goal dates assume your daily free time goes to the goal's remaining tasks; other work can push them later.",
+          "Only the declared intervention changes; unmodeled life events remain outside this scenario.",
+          "Projected XP is informational and is never awarded by this simulation."
+        ],
+        "explanation": "Maintain current course changes the current portfolio against baseline trajectory-fixture-r1. Projected risk is low; 0 linked Schedule block(s) are affected.",
+        "utility": 0.0,
+        "reliefMinutes": 0,
+        "modelVersion": "trajectory-consequence-v4"
+      },
+      {
+        "id": "trajectory-fixture-r1:delay",
+        "baselineRevision": "trajectory-fixture-r1",
+        "intervention": "delay",
+        "generatedAt": "2026-08-16T15:00:00.000Z",
+        "momentum": 54,
+        "pressure": 1,
+        "uncertainty": 42,
+        "calibrationMultiplier": 1.0,
+        "confidence": {
+          "sourceCompleteness": 0.92,
+          "freshness": 0.24541666666666662,
+          "sampleSufficiency": 0.75,
+          "intervalPrecision": 0.16000000000000003,
+          "recommendationConfidence": 0.5355833333333333,
+          "band": "moderate",
+          "calibration": "provisional"
+        },
+        "risk": {
+          "current": 23,
+          "projected": 36,
+          "band": "watch",
+          "contributions": [
+            {
+              "code": "pressure",
+              "label": "Pressure load",
+              "current": 1,
+              "projected": 1,
+              "explanation": "Sustained pressure raises rollover and recovery risk."
+            },
+            {
+              "code": "deferral",
+              "label": "Deferral accumulation",
+              "current": 25,
+              "projected": 40,
+              "explanation": "Repeated deferrals compound uncertainty in future capacity."
+            },
+            {
+              "code": "deadline",
+              "label": "Deadline pressure",
+              "current": 8,
+              "projected": 30,
+              "explanation": "Crossed deadlines reduce slack and can displace other work."
+            },
+            {
+              "code": "capacity",
+              "label": "Capacity overload",
+              "current": 21,
+              "projected": 21,
+              "explanation": "Unscheduled work indicates that current commitments do not fit."
+            }
+          ]
+        },
+        "timeline": {
+          "affectedBlockIds": [
+            "block-launch"
+          ],
+          "displacedSubjectIds": [],
+          "deadlineCrossings": 1,
+          "minutesAdded": 90,
+          "summary": "1 existing block(s) are affected; 1 deadline crossing(s) are projected."
+        },
+        "goals": [
+          {
+            "goalId": "goal-release",
+            "goalTitle": "Release candidate",
+            "remainingMinutes": 150,
+            "confidence": {
+              "sourceCompleteness": 0.92,
+              "freshness": 0.24541666666666662,
+              "sampleSufficiency": 0.75,
+              "intervalPrecision": 0.16000000000000003,
+              "recommendationConfidence": 0.5355833333333333,
+              "band": "moderate",
+              "calibration": "provisional"
+            }
+          }
+        ],
+        "progression": {
+          "potentialXp": 0,
+          "streakProtected": false,
+          "summary": "No progress reward is projected from this intervention alone."
+        },
+        "evidence": [
+          "baseline_revision=trajectory-fixture-r1",
+          "observations=12",
+          "completed_window=6",
+          "deferred_window=3",
+          "available_minutes=420",
+          "no_context_available_minutes=420",
+          "occupied_minutes=300",
+          "unscheduled_minutes=90",
+          "no_context_unscheduled_minutes=90",
+          "subject=task-launch",
+          "horizon_days=90",
+          "daily_free_minutes=120",
+          "daily_free_origin=observed",
+          "tasks_in_horizon=2",
+          "required_minutes_in_horizon=150",
+          "expected_completions=0-2-2",
+          "tasks=2",
+          "goals=1",
+          "timeline=1",
+          "plan=1"
+        ],
+        "assumptions": [
+          "Goal dates assume your daily free time goes to the goal's remaining tasks; other work can push them later.",
+          "Only the declared intervention changes; unmodeled life events remain outside this scenario.",
+          "Projected XP is informational and is never awarded by this simulation."
+        ],
+        "explanation": "Delay the milestone changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is watch; 1 existing block(s) are affected; 1 deadline crossing(s) are projected.",
+        "utility": -10.58,
+        "reliefMinutes": 0,
+        "modelVersion": "trajectory-consequence-v4"
+      }
+    ]
+  },
+  "thin-7": {
+    "recommended": "trajectory-fixture-r1:planner",
+    "outcomes": [
+      {
+        "id": "trajectory-fixture-r1:planner",
+        "baselineRevision": "trajectory-fixture-r1",
+        "intervention": "planner",
+        "generatedAt": "2026-08-16T15:00:00.000Z",
+        "momentum": 67,
+        "pressure": 18,
+        "uncertainty": 24,
+        "calibrationMultiplier": 1.0,
+        "confidence": {
+          "sourceCompleteness": 0.92,
+          "freshness": 0.9025,
+          "sampleSufficiency": 0.75,
+          "intervalPrecision": 0.52,
+          "recommendationConfidence": 0.757,
+          "band": "high",
+          "calibration": "provisional"
+        },
+        "risk": {
+          "current": 56,
+          "projected": 52,
+          "band": "watch",
+          "contributions": [
+            {
+              "code": "pressure",
+              "label": "Pressure load",
+              "current": 18,
+              "projected": 18,
+              "explanation": "Sustained pressure raises rollover and recovery risk."
+            },
+            {
+              "code": "deferral",
+              "label": "Deferral accumulation",
+              "current": 100,
+              "projected": 100,
+              "explanation": "Repeated deferrals compound uncertainty in future capacity."
+            },
+            {
+              "code": "deadline",
+              "label": "Deadline pressure",
+              "current": 8,
+              "projected": 8,
+              "explanation": "Crossed deadlines reduce slack and can displace other work."
+            },
+            {
+              "code": "capacity",
+              "label": "Capacity overload",
+              "current": 21,
+              "projected": 3,
+              "explanation": "Unscheduled work indicates that current commitments do not fit."
+            }
+          ]
+        },
+        "timeline": {
+          "affectedBlockIds": [
+            "block-launch"
+          ],
+          "displacedSubjectIds": [],
+          "deadlineCrossings": 0,
+          "minutesAdded": 90,
+          "summary": "1 Choose a step block(s) are projected; 0 commitment(s) remain displaced."
+        },
+        "goals": [
+          {
+            "goalId": "goal-release",
+            "goalTitle": "Release candidate",
+            "remainingMinutes": 150,
+            "confidence": {
+              "sourceCompleteness": 0.92,
+              "freshness": 0.9025,
+              "sampleSufficiency": 0.75,
+              "intervalPrecision": 0.52,
+              "recommendationConfidence": 0.757,
+              "band": "high",
+              "calibration": "provisional"
+            }
+          }
+        ],
+        "progression": {
+          "potentialXp": 0,
+          "streakProtected": true,
+          "summary": "No progress reward is projected from this intervention alone."
+        },
+        "evidence": [
+          "baseline_revision=trajectory-fixture-r1",
+          "observations=3",
+          "completed_window=6",
+          "deferred_window=3",
+          "available_minutes=420",
+          "no_context_available_minutes=420",
+          "occupied_minutes=300",
+          "unscheduled_minutes=90",
+          "no_context_unscheduled_minutes=90",
+          "subject=task-launch",
+          "horizon_days=7",
+          "daily_free_minutes=120",
+          "daily_free_origin=observed",
+          "tasks_in_horizon=2",
+          "required_minutes_in_horizon=150",
+          "expected_completions=0-2-2",
+          "tasks=2",
+          "goals=1",
+          "timeline=1",
+          "plan=1"
+        ],
+        "assumptions": [
+          "The protected block is attempted.",
+          "Goal dates assume your daily free time goes to the goal's remaining tasks; other work can push them later.",
+          "Only the declared intervention changes; unmodeled life events remain outside this scenario.",
+          "Projected XP is informational and is never awarded by this simulation."
+        ],
+        "explanation": "Protect the Smart Planner path changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is watch; 1 Choose a step block(s) are projected; 0 commitment(s) remain displaced.",
+        "utility": 3.64,
+        "reliefMinutes": 0,
+        "modelVersion": "trajectory-consequence-v4"
+      },
+      {
+        "id": "trajectory-fixture-r1:maintain",
+        "baselineRevision": "trajectory-fixture-r1",
+        "intervention": "maintain",
+        "generatedAt": "2026-08-16T15:00:00.000Z",
+        "momentum": 61,
+        "pressure": 18,
+        "uncertainty": 24,
+        "calibrationMultiplier": 1.0,
+        "confidence": {
+          "sourceCompleteness": 0.92,
+          "freshness": 0.9025,
+          "sampleSufficiency": 0.75,
+          "intervalPrecision": 0.52,
+          "recommendationConfidence": 0.757,
+          "band": "high",
+          "calibration": "provisional"
+        },
+        "risk": {
+          "current": 56,
+          "projected": 56,
+          "band": "watch",
+          "contributions": [
+            {
+              "code": "pressure",
+              "label": "Pressure load",
+              "current": 18,
+              "projected": 18,
+              "explanation": "Sustained pressure raises rollover and recovery risk."
+            },
+            {
+              "code": "deferral",
+              "label": "Deferral accumulation",
+              "current": 100,
+              "projected": 100,
+              "explanation": "Repeated deferrals compound uncertainty in future capacity."
+            },
+            {
+              "code": "deadline",
+              "label": "Deadline pressure",
+              "current": 8,
+              "projected": 8,
+              "explanation": "Crossed deadlines reduce slack and can displace other work."
+            },
+            {
+              "code": "capacity",
+              "label": "Capacity overload",
+              "current": 21,
+              "projected": 21,
+              "explanation": "Unscheduled work indicates that current commitments do not fit."
+            }
+          ]
+        },
+        "timeline": {
+          "affectedBlockIds": [],
+          "displacedSubjectIds": [],
+          "deadlineCrossings": 0,
+          "minutesAdded": 0,
+          "summary": "0 linked Schedule block(s) are affected."
+        },
+        "goals": [
+          {
+            "goalId": "goal-release",
+            "goalTitle": "Release candidate",
+            "remainingMinutes": 150,
+            "confidence": {
+              "sourceCompleteness": 0.92,
+              "freshness": 0.9025,
+              "sampleSufficiency": 0.75,
+              "intervalPrecision": 0.52,
+              "recommendationConfidence": 0.757,
+              "band": "high",
+              "calibration": "provisional"
+            }
+          }
+        ],
+        "progression": {
+          "potentialXp": 0,
+          "streakProtected": false,
+          "summary": "No progress reward is projected from this intervention alone."
+        },
+        "evidence": [
+          "baseline_revision=trajectory-fixture-r1",
+          "observations=3",
+          "completed_window=6",
+          "deferred_window=3",
+          "available_minutes=420",
+          "no_context_available_minutes=420",
+          "occupied_minutes=300",
+          "unscheduled_minutes=90",
+          "no_context_unscheduled_minutes=90",
+          "subject=portfolio",
+          "horizon_days=7",
+          "daily_free_minutes=120",
+          "daily_free_origin=observed",
+          "tasks_in_horizon=2",
+          "required_minutes_in_horizon=150",
+          "expected_completions=0-2-2",
+          "tasks=2",
+          "goals=1",
+          "timeline=1",
+          "plan=1"
+        ],
+        "assumptions": [
+          "Goal dates assume your daily free time goes to the goal's remaining tasks; other work can push them later.",
+          "Only the declared intervention changes; unmodeled life events remain outside this scenario.",
+          "Projected XP is informational and is never awarded by this simulation."
+        ],
+        "explanation": "Maintain current course changes the current portfolio against baseline trajectory-fixture-r1. Projected risk is watch; 0 linked Schedule block(s) are affected.",
+        "utility": 0.0,
+        "reliefMinutes": 0,
+        "modelVersion": "trajectory-consequence-v4"
+      },
+      {
+        "id": "trajectory-fixture-r1:delay",
+        "baselineRevision": "trajectory-fixture-r1",
+        "intervention": "delay",
+        "generatedAt": "2026-08-16T15:00:00.000Z",
+        "momentum": 54,
+        "pressure": 18,
+        "uncertainty": 24,
+        "calibrationMultiplier": 1.0,
+        "confidence": {
+          "sourceCompleteness": 0.92,
+          "freshness": 0.9025,
+          "sampleSufficiency": 0.75,
+          "intervalPrecision": 0.52,
+          "recommendationConfidence": 0.757,
+          "band": "high",
+          "calibration": "provisional"
+        },
+        "risk": {
+          "current": 56,
+          "projected": 60,
+          "band": "elevated",
+          "contributions": [
+            {
+              "code": "pressure",
+              "label": "Pressure load",
+              "current": 18,
+              "projected": 18,
+              "explanation": "Sustained pressure raises rollover and recovery risk."
+            },
+            {
+              "code": "deferral",
+              "label": "Deferral accumulation",
+              "current": 100,
+              "projected": 100,
+              "explanation": "Repeated deferrals compound uncertainty in future capacity."
+            },
+            {
+              "code": "deadline",
+              "label": "Deadline pressure",
+              "current": 8,
+              "projected": 30,
+              "explanation": "Crossed deadlines reduce slack and can displace other work."
+            },
+            {
+              "code": "capacity",
+              "label": "Capacity overload",
+              "current": 21,
+              "projected": 21,
+              "explanation": "Unscheduled work indicates that current commitments do not fit."
+            }
+          ]
+        },
+        "timeline": {
+          "affectedBlockIds": [
+            "block-launch"
+          ],
+          "displacedSubjectIds": [],
+          "deadlineCrossings": 1,
+          "minutesAdded": 90,
+          "summary": "1 existing block(s) are affected; 1 deadline crossing(s) are projected."
+        },
+        "goals": [
+          {
+            "goalId": "goal-release",
+            "goalTitle": "Release candidate",
+            "remainingMinutes": 150,
+            "confidence": {
+              "sourceCompleteness": 0.92,
+              "freshness": 0.9025,
+              "sampleSufficiency": 0.75,
+              "intervalPrecision": 0.52,
+              "recommendationConfidence": 0.757,
+              "band": "high",
+              "calibration": "provisional"
+            }
+          }
+        ],
+        "progression": {
+          "potentialXp": 0,
+          "streakProtected": false,
+          "summary": "No progress reward is projected from this intervention alone."
+        },
+        "evidence": [
+          "baseline_revision=trajectory-fixture-r1",
+          "observations=3",
+          "completed_window=6",
+          "deferred_window=3",
+          "available_minutes=420",
+          "no_context_available_minutes=420",
+          "occupied_minutes=300",
+          "unscheduled_minutes=90",
+          "no_context_unscheduled_minutes=90",
+          "subject=task-launch",
+          "horizon_days=7",
+          "daily_free_minutes=120",
+          "daily_free_origin=observed",
+          "tasks_in_horizon=2",
+          "required_minutes_in_horizon=150",
+          "expected_completions=0-2-2",
+          "tasks=2",
+          "goals=1",
+          "timeline=1",
+          "plan=1"
+        ],
+        "assumptions": [
+          "Goal dates assume your daily free time goes to the goal's remaining tasks; other work can push them later.",
+          "Only the declared intervention changes; unmodeled life events remain outside this scenario.",
+          "Projected XP is informational and is never awarded by this simulation."
+        ],
+        "explanation": "Delay the milestone changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is elevated; 1 existing block(s) are affected; 1 deadline crossing(s) are projected.",
+        "utility": -8.06,
+        "reliefMinutes": 0,
+        "modelVersion": "trajectory-consequence-v4"
+      }
+    ]
+  },
+  "thin-90": {
+    "recommended": "trajectory-fixture-r1:planner",
+    "outcomes": [
+      {
+        "id": "trajectory-fixture-r1:planner",
+        "baselineRevision": "trajectory-fixture-r1",
+        "intervention": "planner",
+        "generatedAt": "2026-08-16T15:00:00.000Z",
+        "momentum": 67,
+        "pressure": 1,
+        "uncertainty": 42,
+        "calibrationMultiplier": 1.0,
+        "confidence": {
+          "sourceCompleteness": 0.92,
+          "freshness": 0.24541666666666662,
+          "sampleSufficiency": 0.75,
+          "intervalPrecision": 0.16000000000000003,
+          "recommendationConfidence": 0.5355833333333333,
+          "band": "moderate",
+          "calibration": "provisional"
+        },
+        "risk": {
+          "current": 52,
+          "projected": 48,
+          "band": "watch",
+          "contributions": [
+            {
+              "code": "pressure",
+              "label": "Pressure load",
+              "current": 1,
+              "projected": 1,
+              "explanation": "Sustained pressure raises rollover and recovery risk."
+            },
+            {
+              "code": "deferral",
+              "label": "Deferral accumulation",
+              "current": 100,
+              "projected": 100,
+              "explanation": "Repeated deferrals compound uncertainty in future capacity."
+            },
+            {
+              "code": "deadline",
+              "label": "Deadline pressure",
+              "current": 8,
+              "projected": 8,
+              "explanation": "Crossed deadlines reduce slack and can displace other work."
+            },
+            {
+              "code": "capacity",
+              "label": "Capacity overload",
+              "current": 21,
+              "projected": 3,
+              "explanation": "Unscheduled work indicates that current commitments do not fit."
+            }
+          ]
+        },
+        "timeline": {
+          "affectedBlockIds": [
+            "block-launch"
+          ],
+          "displacedSubjectIds": [],
+          "deadlineCrossings": 0,
+          "minutesAdded": 90,
+          "summary": "1 Choose a step block(s) are projected; 0 commitment(s) remain displaced."
+        },
+        "goals": [
+          {
+            "goalId": "goal-release",
+            "goalTitle": "Release candidate",
+            "remainingMinutes": 150,
+            "confidence": {
+              "sourceCompleteness": 0.92,
+              "freshness": 0.24541666666666662,
+              "sampleSufficiency": 0.75,
+              "intervalPrecision": 0.16000000000000003,
+              "recommendationConfidence": 0.5355833333333333,
+              "band": "moderate",
+              "calibration": "provisional"
+            }
+          }
+        ],
+        "progression": {
+          "potentialXp": 0,
+          "streakProtected": true,
+          "summary": "No progress reward is projected from this intervention alone."
+        },
+        "evidence": [
+          "baseline_revision=trajectory-fixture-r1",
+          "observations=3",
+          "completed_window=6",
+          "deferred_window=3",
+          "available_minutes=420",
+          "no_context_available_minutes=420",
+          "occupied_minutes=300",
+          "unscheduled_minutes=90",
+          "no_context_unscheduled_minutes=90",
+          "subject=task-launch",
+          "horizon_days=90",
+          "daily_free_minutes=120",
+          "daily_free_origin=observed",
+          "tasks_in_horizon=2",
+          "required_minutes_in_horizon=150",
+          "expected_completions=0-2-2",
+          "tasks=2",
+          "goals=1",
+          "timeline=1",
+          "plan=1"
+        ],
+        "assumptions": [
+          "The protected block is attempted.",
+          "Goal dates assume your daily free time goes to the goal's remaining tasks; other work can push them later.",
+          "Only the declared intervention changes; unmodeled life events remain outside this scenario.",
+          "Projected XP is informational and is never awarded by this simulation."
+        ],
+        "explanation": "Protect the Smart Planner path changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is watch; 1 Choose a step block(s) are projected; 0 commitment(s) remain displaced.",
+        "utility": 3.64,
+        "reliefMinutes": 0,
+        "modelVersion": "trajectory-consequence-v4"
+      },
+      {
+        "id": "trajectory-fixture-r1:maintain",
+        "baselineRevision": "trajectory-fixture-r1",
+        "intervention": "maintain",
+        "generatedAt": "2026-08-16T15:00:00.000Z",
+        "momentum": 61,
+        "pressure": 1,
+        "uncertainty": 42,
+        "calibrationMultiplier": 1.0,
+        "confidence": {
+          "sourceCompleteness": 0.92,
+          "freshness": 0.24541666666666662,
+          "sampleSufficiency": 0.75,
+          "intervalPrecision": 0.16000000000000003,
+          "recommendationConfidence": 0.5355833333333333,
+          "band": "moderate",
+          "calibration": "provisional"
+        },
+        "risk": {
+          "current": 52,
+          "projected": 52,
+          "band": "watch",
+          "contributions": [
+            {
+              "code": "pressure",
+              "label": "Pressure load",
+              "current": 1,
+              "projected": 1,
+              "explanation": "Sustained pressure raises rollover and recovery risk."
+            },
+            {
+              "code": "deferral",
+              "label": "Deferral accumulation",
+              "current": 100,
+              "projected": 100,
+              "explanation": "Repeated deferrals compound uncertainty in future capacity."
+            },
+            {
+              "code": "deadline",
+              "label": "Deadline pressure",
+              "current": 8,
+              "projected": 8,
+              "explanation": "Crossed deadlines reduce slack and can displace other work."
+            },
+            {
+              "code": "capacity",
+              "label": "Capacity overload",
+              "current": 21,
+              "projected": 21,
+              "explanation": "Unscheduled work indicates that current commitments do not fit."
+            }
+          ]
+        },
+        "timeline": {
+          "affectedBlockIds": [],
+          "displacedSubjectIds": [],
+          "deadlineCrossings": 0,
+          "minutesAdded": 0,
+          "summary": "0 linked Schedule block(s) are affected."
+        },
+        "goals": [
+          {
+            "goalId": "goal-release",
+            "goalTitle": "Release candidate",
+            "remainingMinutes": 150,
+            "confidence": {
+              "sourceCompleteness": 0.92,
+              "freshness": 0.24541666666666662,
+              "sampleSufficiency": 0.75,
+              "intervalPrecision": 0.16000000000000003,
+              "recommendationConfidence": 0.5355833333333333,
+              "band": "moderate",
+              "calibration": "provisional"
+            }
+          }
+        ],
+        "progression": {
+          "potentialXp": 0,
+          "streakProtected": false,
+          "summary": "No progress reward is projected from this intervention alone."
+        },
+        "evidence": [
+          "baseline_revision=trajectory-fixture-r1",
+          "observations=3",
+          "completed_window=6",
+          "deferred_window=3",
+          "available_minutes=420",
+          "no_context_available_minutes=420",
+          "occupied_minutes=300",
+          "unscheduled_minutes=90",
+          "no_context_unscheduled_minutes=90",
+          "subject=portfolio",
+          "horizon_days=90",
+          "daily_free_minutes=120",
+          "daily_free_origin=observed",
+          "tasks_in_horizon=2",
+          "required_minutes_in_horizon=150",
+          "expected_completions=0-2-2",
+          "tasks=2",
+          "goals=1",
+          "timeline=1",
+          "plan=1"
+        ],
+        "assumptions": [
+          "Goal dates assume your daily free time goes to the goal's remaining tasks; other work can push them later.",
+          "Only the declared intervention changes; unmodeled life events remain outside this scenario.",
+          "Projected XP is informational and is never awarded by this simulation."
+        ],
+        "explanation": "Maintain current course changes the current portfolio against baseline trajectory-fixture-r1. Projected risk is watch; 0 linked Schedule block(s) are affected.",
+        "utility": 0.0,
+        "reliefMinutes": 0,
+        "modelVersion": "trajectory-consequence-v4"
+      },
+      {
+        "id": "trajectory-fixture-r1:delay",
+        "baselineRevision": "trajectory-fixture-r1",
+        "intervention": "delay",
+        "generatedAt": "2026-08-16T15:00:00.000Z",
+        "momentum": 54,
+        "pressure": 1,
+        "uncertainty": 42,
+        "calibrationMultiplier": 1.0,
+        "confidence": {
+          "sourceCompleteness": 0.92,
+          "freshness": 0.24541666666666662,
+          "sampleSufficiency": 0.75,
+          "intervalPrecision": 0.16000000000000003,
+          "recommendationConfidence": 0.5355833333333333,
+          "band": "moderate",
+          "calibration": "provisional"
+        },
+        "risk": {
+          "current": 52,
+          "projected": 57,
+          "band": "watch",
+          "contributions": [
+            {
+              "code": "pressure",
+              "label": "Pressure load",
+              "current": 1,
+              "projected": 1,
+              "explanation": "Sustained pressure raises rollover and recovery risk."
+            },
+            {
+              "code": "deferral",
+              "label": "Deferral accumulation",
+              "current": 100,
+              "projected": 100,
+              "explanation": "Repeated deferrals compound uncertainty in future capacity."
+            },
+            {
+              "code": "deadline",
+              "label": "Deadline pressure",
+              "current": 8,
+              "projected": 30,
+              "explanation": "Crossed deadlines reduce slack and can displace other work."
+            },
+            {
+              "code": "capacity",
+              "label": "Capacity overload",
+              "current": 21,
+              "projected": 21,
+              "explanation": "Unscheduled work indicates that current commitments do not fit."
+            }
+          ]
+        },
+        "timeline": {
+          "affectedBlockIds": [
+            "block-launch"
+          ],
+          "displacedSubjectIds": [],
+          "deadlineCrossings": 1,
+          "minutesAdded": 90,
+          "summary": "1 existing block(s) are affected; 1 deadline crossing(s) are projected."
+        },
+        "goals": [
+          {
+            "goalId": "goal-release",
+            "goalTitle": "Release candidate",
+            "remainingMinutes": 150,
+            "confidence": {
+              "sourceCompleteness": 0.92,
+              "freshness": 0.24541666666666662,
+              "sampleSufficiency": 0.75,
+              "intervalPrecision": 0.16000000000000003,
+              "recommendationConfidence": 0.5355833333333333,
+              "band": "moderate",
+              "calibration": "provisional"
+            }
+          }
+        ],
+        "progression": {
+          "potentialXp": 0,
+          "streakProtected": false,
+          "summary": "No progress reward is projected from this intervention alone."
+        },
+        "evidence": [
+          "baseline_revision=trajectory-fixture-r1",
+          "observations=3",
+          "completed_window=6",
+          "deferred_window=3",
+          "available_minutes=420",
+          "no_context_available_minutes=420",
+          "occupied_minutes=300",
+          "unscheduled_minutes=90",
+          "no_context_unscheduled_minutes=90",
+          "subject=task-launch",
+          "horizon_days=90",
+          "daily_free_minutes=120",
+          "daily_free_origin=observed",
+          "tasks_in_horizon=2",
+          "required_minutes_in_horizon=150",
+          "expected_completions=0-2-2",
+          "tasks=2",
+          "goals=1",
+          "timeline=1",
+          "plan=1"
+        ],
+        "assumptions": [
+          "Goal dates assume your daily free time goes to the goal's remaining tasks; other work can push them later.",
+          "Only the declared intervention changes; unmodeled life events remain outside this scenario.",
+          "Projected XP is informational and is never awarded by this simulation."
+        ],
+        "explanation": "Delay the milestone changes Ship protected milestone against baseline trajectory-fixture-r1. Projected risk is watch; 1 existing block(s) are affected; 1 deadline crossing(s) are projected.",
+        "utility": -8.34,
+        "reliefMinutes": 0,
+        "modelVersion": "trajectory-consequence-v4"
+      }
+    ]
+  }
+}

@@ -79,7 +79,7 @@ void main() {
     expect(appViewFromRoutePath(RoutePaths.smartPlanner), AppView.smartPlanner);
     expect(
       appViewFromRoutePath(RoutePaths.legacyInsights),
-      AppView.smartPlanner,
+      AppView.trajectoryEngine,
     );
     expect(appViewFromRoutePath(RoutePaths.si), AppView.console);
     expect(appViewFromRoutePath(RoutePaths.legacySi), AppView.console);

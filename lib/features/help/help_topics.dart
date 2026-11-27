@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/l10n/insights_copy.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
 import 'package:flutter/foundation.dart';
@@ -64,13 +65,23 @@ const GuidanceText _today = GuidanceText('Today', 'Hoy');
 const GuidanceText _myPlan = GuidanceText('My plan', 'Mi plan');
 const GuidanceText _habits = GuidanceText('Habits', 'Hábitos');
 const GuidanceText _goals = GuidanceText('Goals', 'Metas');
-const GuidanceText _insights = GuidanceText('Insights', 'Perspectivas');
+const GuidanceText _insights = GuidanceText(
+  InsightsCopy.tabNameEn,
+  InsightsCopy.tabNameEs,
+);
 const GuidanceText _chat = GuidanceText('Chat', 'Chat');
 const GuidanceText _chooseStep = GuidanceText(
   'Choose a step',
   'Elegir un paso',
 );
-const GuidanceText _activity = GuidanceText('Activity', 'Actividad');
+const GuidanceText _patternsPlace = GuidanceText(
+  '${InsightsCopy.tabNameEn} › ${InsightsCopy.patternsEn}',
+  '${InsightsCopy.tabNameEs} › ${InsightsCopy.patternsEs}',
+);
+const GuidanceText _patterns = GuidanceText(
+  InsightsCopy.patternsEn,
+  InsightsCopy.patternsEs,
+);
 const GuidanceText _notificationSettings = GuidanceText(
   'Settings › Notifications',
   'Ajustes › Notificaciones',
@@ -127,7 +138,7 @@ HelpTopic? _hintTopic(GuidanceHint hint) {
       showMe: AppView.trajectoryEngine,
     ),
     GuidanceLessonId.progression => topic(
-      place: _activity,
+      place: _patternsPlace,
       showMe: AppView.progression,
     ),
     // The hint says "Mark here", which only makes sense on Habits itself.
@@ -185,7 +196,7 @@ abstract final class HelpTopics {
     AppView.trajectoryEngine => _insights,
     AppView.console => _chat,
     AppView.smartPlanner => _chooseStep,
-    AppView.progression => _activity,
+    AppView.progression => _patterns,
     AppView.settings => const GuidanceText('Settings', 'Ajustes'),
     AppView.profile => const GuidanceText('Profile', 'Perfil'),
     AppView.creator => const GuidanceText('Add something', 'Añadir algo'),
@@ -195,8 +206,8 @@ abstract final class HelpTopics {
     id: 'today',
     title: GuidanceText('What Today is for', 'Para qué sirve Hoy'),
     body: GuidanceText(
-      'Today shows a few tasks to start with. On Today you can add a goal, task or habit, open Goals, check in with a habit, open Chat, see patterns and future outcomes, or review your day in detail.',
-      'Hoy muestra algunas tareas por las que empezar. En Hoy puedes añadir una meta, tarea o hábito, abrir Metas, registrar un hábito, abrir Chat, ver patrones y resultados futuros, o revisar tu día en detalle.',
+      'Today shows a few tasks to start with. On Today you can add a goal, task or habit, open Goals, check in with a habit, open Chat, open Insights for your patterns and future outcomes, or review your day in detail.',
+      'Hoy muestra algunas tareas por las que empezar. En Hoy puedes añadir una meta, tarea o hábito, abrir Metas, registrar un hábito, abrir Chat, abrir Perspectivas para tus patrones y resultados futuros, o revisar tu día en detalle.',
     ),
     place: _today,
     showMe: AppView.nexus,
@@ -240,8 +251,8 @@ abstract final class HelpTopics {
     id: 'insights',
     title: GuidanceText('What Insights is for', 'Para qué sirve Perspectivas'),
     body: GuidanceText(
-      'Insights shows patterns in what you recorded and what could happen next. You can compare a different time, amount of work or priority before you change your plan.',
-      'Perspectivas muestra patrones en lo que registraste y lo que podría pasar después. Puedes comparar otra hora, otra cantidad de trabajo u otra prioridad antes de cambiar tu plan.',
+      'Insights has two parts. Patterns shows what you recorded. Future outcomes shows estimates of what could happen next, and you can compare finishing, putting off or removing a task before you change your plan.',
+      'Perspectivas tiene dos partes. Patrones muestra lo que registraste. Resultados futuros muestra estimaciones de lo que podría pasar después, y puedes comparar terminar, aplazar o quitar una tarea antes de cambiar tu plan.',
     ),
     place: _insights,
     showMe: AppView.trajectoryEngine,

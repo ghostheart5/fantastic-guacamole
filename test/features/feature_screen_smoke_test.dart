@@ -53,7 +53,13 @@ void main() {
     await tester.pump();
 
     expect(find.text('Schedule'), findsOneWidget);
-    expect(find.text('Completed sprint review'), findsOneWidget);
+    final Finder review = find.text('Completed sprint review');
+    await tester.scrollUntilVisible(
+      review,
+      160,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(review.hitTestable(), findsOneWidget);
   });
 
   testWidgets('TimelineScreen projects due-date tasks with actions', (
@@ -95,8 +101,14 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.bySemanticsLabel('Back to Today'), findsOneWidget);
-    expect(find.text('Due-date only task'), findsOneWidget);
+    expect(find.byTooltip('Back to Today'), findsOneWidget);
+    final Finder task = find.text('Due-date only task');
+    await tester.scrollUntilVisible(
+      task,
+      160,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(task, findsOneWidget);
     expect(find.text('Complete'), findsOneWidget);
     expect(find.text('Skip'), findsOneWidget);
   });

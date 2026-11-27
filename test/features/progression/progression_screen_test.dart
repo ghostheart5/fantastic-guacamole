@@ -1,181 +1,51 @@
-import 'dart:async';
+import 'dart:ui' as ui;
 
-import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-
-import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
-import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
-import 'package:fantastic_guacamole/features/progression/ui/progression_screen.dart';
-import 'package:fantastic_guacamole/domain/entities/task.dart';
-import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
-import 'package:fantastic_guacamole/state/providers/habit_occurrence_provider.dart';
-import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/models/progression_state.dart';
-import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
-import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
-import 'package:fantastic_guacamole/state/state/logs_state.dart';
-import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/state/models/user_progress.dart';
+import 'package:fantastic_guacamole/theme/app_theme.dart';
+import 'package:fantastic_guacamole/ui/navigation/insights_destination_switch.dart';
+import 'package:fantastic_guacamole/ui/widgets/plain/plain.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Progression had no widget coverage at all despite being a 600+ line screen
-/// that renders XP, level, streak and weekly summary state. These are smoke
-/// tests: they prove the screen mounts and survives the states a real user
-/// actually hits, rather than asserting on exact copy.
+import '../../helpers/patterns_screen_harness.dart';
+
+/// The screen title: the tab name, not the same word on the switch below it.
+Finder _title(String text) =>
+    find.descendant(of: find.byType(PlainHeader), matching: find.text(text));
+
+/// Patterns mounts and survives the states a real user hits. Section figures
+/// are covered in patterns_structure_test.dart.
 void main() {
-  Future<ProviderContainer> pumpProgression(
-    WidgetTester tester, {
-    required TrajectorySummaryView trajectory,
-    Locale locale = const Locale('en'),
-    Size physicalSize = const Size(1200, 4000),
-    FutureOr<String> Function(Ref ref)? weeklySummaryOverride,
-    FutureOr<ProgressionReview> Function(Ref ref)? reviewOverride,
-    FutureOr<List<Task>> Function(Ref ref)? tasksOverride,
-    List<TimelineEventEntity>? timelineOverdue,
-    List<LearningHistorySnapshot>? learningHistorySnapshots,
-    List<LogEntryEntity> savedLogs = const [],
-    List<HabitOccurrenceEntity> habitOutcomes = const [],
-    AppFlowController? appFlowOverride,
-  }) async {
-    tester.platformDispatcher.views.first
-      ..physicalSize = physicalSize
-      ..devicePixelRatio = 1.0;
-    addTearDown(() {
-      tester.platformDispatcher.views.first
-        ..resetPhysicalSize()
-        ..resetDevicePixelRatio();
-    });
-
-    final ProviderContainer container = ProviderContainer(
-      overrides: [
-        if (appFlowOverride != null)
-          appFlowProvider.overrideWith(() => appFlowOverride),
-        accountStorageScopeProvider.overrideWithValue(
-          AccountStorageScope.authenticated('progression-test-account'),
-        ),
-        accountLegacyOwnershipProvider.overrideWithValue(
-          LegacyScopeOwnership.provenNotOwned,
-        ),
-        trajectorySummaryProvider.overrideWithValue(trajectory),
-        progressionProvider.overrideWithValue(ProgressionState.initial()),
-        logsProvider.overrideWith(() => _SavedLogs(savedLogs)),
-        habitOccurrencesProvider.overrideWith((ref) async => habitOutcomes),
-        progressionReviewProvider.overrideWith(
-          reviewOverride ??
-              (Ref ref) async => ProgressionReview(
-                await (weeklySummaryOverride ??
-                    (Ref ref) async => _summaryText)(ref),
-              ),
-        ),
-        if (tasksOverride != null) tasksProvider.overrideWith(tasksOverride),
-        if (timelineOverdue != null)
-          timelineOverdueProvider.overrideWithValue(timelineOverdue),
-        if (learningHistorySnapshots != null)
-          learningHistorySnapshotsProvider.overrideWithValue(
-            learningHistorySnapshots,
-          ),
-      ],
-    );
-    addTearDown(container.dispose);
-
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          locale: locale,
-          supportedLocales: ChronoSparkLocalizations.supportedLocales,
-          localizationsDelegates: const [
-            ChronoSparkLocalizations.delegate,
-            ...GlobalMaterialLocalizations.delegates,
-          ],
-          home: const ProgressionScreen(),
-        ),
-      ),
-    );
-    await tester.pump();
-    return container;
-  }
-
-  testWidgets(
-    'Activity includes saved daily weekly and monthly habit outcomes',
-    (tester) async {
-      await pumpProgression(
-        tester,
-        trajectory: _emptyTrajectory,
-        habitOutcomes: [
-          for (final slot in ['2026-10-21', 'week:2026-10-19', 'month:2026-10'])
-            HabitOccurrenceEntity(
-              habitId: slot,
-              occurrenceKey: slot,
-              operationId: slot,
-              outcome: HabitOccurrenceOutcome.completed,
-              recordedAt: DateTime.utc(2026, 10, 21),
-            ),
-          HabitOccurrenceEntity(
-            habitId: 'skip',
-            occurrenceKey: '2026-10-21',
-            operationId: 'skip',
-            outcome: HabitOccurrenceOutcome.skipped,
-            recordedAt: DateTime.utc(2026, 10, 21),
-          ),
-        ],
-      );
-      await tester.pump();
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('progression-habit-history')),
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(
-        find.textContaining('Completed periods: 3 · Skipped periods: 1'),
-        findsOneWidget,
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets(
-    'Spanish progression translates controls and evidence without changing values',
-    (tester) async {
-      await pumpProgression(
-        tester,
-        trajectory: _emptyTrajectory,
-        locale: const Locale('es'),
-        reviewOverride: (ref) => const ProgressionReview(
-          'No saved planning history yet.',
-          spanishText: 'Aún no hay historial de planificación guardado.',
-          status: ProgressionReviewStatus.empty,
-        ),
-      );
-      expect(find.text('Actividad'), findsOneWidget);
-      expect(find.byTooltip('Compartir progreso'), findsOneWidget);
-      expect(find.text('IMPULSO DE FINALIZACIÓN'), findsOneWidget);
-      expect(find.text('Fiabilidad de planificación'), findsOneWidget);
-      expect(find.text('Activity'), findsNothing);
-      expect(find.text('TIER'), findsNothing);
-      expect(find.textContaining('XP para el nivel'), findsOneWidget);
-      expect(
-        find.text('Aún no hay historial de planificación guardado.'),
-        findsOneWidget,
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
+  testWidgets('Spanish Patterns translates names and controls', (tester) async {
+    await pumpPatterns(tester, locale: const Locale('es'));
+    expect(_title('Perspectivas'), findsOneWidget);
+    expect(find.byTooltip('Compartir progreso'), findsOneWidget);
+    expect(find.text('Periodo'), findsOneWidget);
+    expect(find.text('Hábitos'), findsOneWidget);
+    expect(find.text('Activity'), findsNothing);
+    expect(find.text('TIER'), findsNothing);
+    expect(find.textContaining('XP para el nivel'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('renders for a brand-new account with zeroed progress', (
-    WidgetTester tester,
+    tester,
   ) async {
-    await pumpProgression(tester, trajectory: _emptyTrajectory);
-
-    expect(find.text('Activity'), findsOneWidget);
-    expect(find.text('Not enough evidence'), findsOneWidget);
-    expect(find.text('Not enough history'), findsOneWidget);
+    await pumpPatterns(tester, progression: ProgressionState.initial());
+    expect(_title('Insights'), findsOneWidget);
+    expect(
+      find.text(
+        'Nothing recorded in these days. Finish a task or check in a habit '
+        'to see it here.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Not enough evidence'), findsNothing);
     expect(find.text('Off Track'), findsNothing);
     expect(
       tester.takeException(),
@@ -184,483 +54,181 @@ void main() {
     );
   });
 
-  testWidgets('renders for an established account with real progress', (
-    WidgetTester tester,
+  testWidgets('fits a compact Pixel-width viewport without overflow', (
+    tester,
   ) async {
-    await pumpProgression(tester, trajectory: _activeTrajectory);
-
-    expect(find.text('Activity'), findsOneWidget);
+    await pumpPatterns(
+      tester,
+      habits: <HabitEntity>[patternsHabit('walk')],
+      size: const Size(412, 915),
+    );
+    expect(_title('Insights'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('saved completion survives empty session history after restart', (
-    WidgetTester tester,
+  testWidgets('saved progress that cannot be loaded offers Retry, not zeros', (
+    tester,
   ) async {
-    await pumpProgression(
+    await pumpPatterns(
       tester,
-      trajectory: _emptyTrajectory,
-      learningHistorySnapshots: const [],
-      savedLogs: [
-        LogEntryEntity(
-          id: 'persisted-completion',
-          source: 'task_completed',
-          message: 'Completed the installation test',
-          timestamp: DateTime.now().subtract(const Duration(minutes: 1)),
-        ),
-      ],
+      progression: const ProgressionState(
+        progress: UserProgress(xp: 0, level: 1, streak: 0, longestStreak: 0),
+        loading: false,
+        error: 'broken',
+      ),
     );
-    expect(find.text('100% completed'), findsOneWidget);
-    expect(find.text('Not enough history'), findsOneWidget);
     expect(
-      find.text('Last 30 days • 1 tasks and goals completed'),
+      find.text(
+        'Your saved progress could not be loaded. No zero-value progress is '
+        'being shown.',
+      ),
       findsOneWidget,
     );
-    expect(find.text('Off Track'), findsNothing);
-    expect(
-      find.text('Your momentum trend will appear after you complete an item.'),
-      findsNothing,
-    );
-    expect(find.textContaining('Rebuilding the habit'), findsNothing);
-    expect(tester.takeException(), isNull);
+    expect(find.widgetWithText(FilledButton, 'Retry'), findsOneWidget);
+    expect(find.text('Points'), findsNothing);
   });
 
-  for (final int completionCount in <int>[1, 2]) {
-    testWidgets(
-      'paints a visible chart marker for $completionCount same-day completions',
-      (WidgetTester tester) async {
-        final DateTime now = DateTime.now();
-        await pumpProgression(
-          tester,
-          trajectory: _emptyTrajectory,
-          learningHistorySnapshots: const [],
-          savedLogs: [
-            for (int i = 0; i < completionCount; i++)
-              LogEntryEntity(
-                id: 'same-day-$i',
-                source: 'task_completed',
-                message: 'Saved completion',
-                timestamp: DateTime(now.year, now.month, now.day),
-              ),
-          ],
-        );
-
-        expect(
-          find.text(
-            'Last 30 days • $completionCount tasks and goals completed',
-          ),
-          findsOneWidget,
-        );
-        expect(
-          tester.renderObject(
-            find.byKey(const ValueKey('progression_completion_chart')),
-          ),
-          paints..circle(color: AppColors.neonCyan),
-          reason: 'One recorded day must still have a visible data marker.',
-        );
-      },
-    );
-  }
-
-  testWidgets('fits a compact Pixel-width viewport without overflow', (
-    WidgetTester tester,
-  ) async {
-    await pumpProgression(
+  testWidgets('the whole Patterns screen fits at 2x text, 320 dp, Spanish, '
+      'app theme', (WidgetTester tester) async {
+    await pumpPatterns(
       tester,
-      trajectory: _activeTrajectory,
-      physicalSize: const Size(412, 915),
+      locale: const Locale('es'),
+      size: const Size(320, 12000),
+      textScale: 2.0,
+      theme: appTheme,
+      habits: <HabitEntity>[
+        patternsHabit(
+          'walk',
+          title:
+              'Caminar alrededor del parque grande con el perro cada '
+              'mañana',
+        ),
+      ],
+      tasks: [
+        skippedTask(
+          's',
+          patternsAt(1),
+          title: 'Llamar a la oficina de impuestos para revisar la declaración',
+        ),
+        openTask('u', title: 'Ordenar todas las fotos del viaje', minutes: 45),
+      ],
     );
-
-    expect(find.text('Activity'), findsOneWidget);
+    // No drained error: nothing on the page overflows.
     expect(tester.takeException(), isNull);
+    final Finder switchFinder = find.byKey(InsightsDestinationSwitch.switchKey);
+    expect(switchFinder, findsOneWidget);
+    expect(tester.getSize(switchFinder).width, lessThanOrEqualTo(320));
+    expect(
+      find.descendant(
+        of: switchFinder,
+        matching: find.text('Resultados futuros'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: switchFinder, matching: find.text('Patrones')),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('survives a trajectory carrying prediction fields', (
-    WidgetTester tester,
-  ) async {
-    // Every existing fixture in the suite left the prediction fields null, so
-    // the populated-prediction path had never been rendered anywhere.
-    await pumpProgression(tester, trajectory: _predictiveTrajectory);
-
-    expect(find.text('Activity'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
-
-  // L-27: _AdvisorSummaryCard's error branch was implemented but untested — a
-  // weekly-summary fetch failure must degrade to a plain message, not crash
-  // or hang on the loading copy forever.
   testWidgets(
-    'a weekly summary fetch failure shows the degraded advisor message',
+    'Patterns has no back control; the switch moves to Future outcomes',
     (WidgetTester tester) async {
-      tester.platformDispatcher.views.first
-        ..physicalSize = const Size(1200, 4000)
-        ..devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.platformDispatcher.views.first
-          ..resetPhysicalSize()
-          ..resetDevicePixelRatio();
-      });
-
-      final ProviderContainer container = ProviderContainer(
-        // FutureProviders retry a thrown error with backoff by default
-        // (ProviderContainer.defaultRetry); disable it so the failure
-        // settles into a stable AsyncError within a single pump.
-        retry: (int retryCount, Object error) => null,
-        overrides: [
-          accountStorageScopeProvider.overrideWithValue(
-            AccountStorageScope.authenticated('progression-test-account'),
-          ),
-          accountLegacyOwnershipProvider.overrideWithValue(
-            LegacyScopeOwnership.provenNotOwned,
-          ),
-          trajectorySummaryProvider.overrideWithValue(_activeTrajectory),
-          progressionProvider.overrideWithValue(ProgressionState.initial()),
-          progressionReviewProvider.overrideWith(
-            (Ref ref) async => throw Exception('summary failed'),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(home: ProgressionScreen()),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
-
-      expect(
-        find.text(
-          'Progress review is unavailable. Your saved evidence could not be read. Retry when your data is available.',
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('Retry progress review'), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, 'Add a task'), findsNothing);
-    },
-  );
-
-  for (final activation in ['semantics', 'pointer']) {
-    testWidgets('Activity exposes one Back action; $activation returns once', (
-      WidgetTester tester,
-    ) async {
       final semantics = tester.ensureSemantics();
       try {
         final flow = _CountingAppFlowController();
-        final container = await pumpProgression(
+        final container = await pumpPatterns(
           tester,
-          trajectory: _activeTrajectory,
-          appFlowOverride: flow,
+          overrides: [appFlowProvider.overrideWith(() => flow)],
         );
-        final initializedFlow = container.read(appFlowProvider.notifier);
-        expect(initializedFlow, same(flow));
-        initializedFlow.toProgression();
+        container.read(appFlowProvider.notifier).toProgression();
         await tester.pump();
 
-        final owner = tester.binding.renderViews.single.owner!.semanticsOwner!;
-        final actionableBack = <SemanticsNode>[];
-        void inspect(SemanticsNode node) {
-          final data = node.getSemanticsData();
-          if ((data.label == 'Back to Today' ||
-                  data.tooltip == 'Back to Today') &&
-              data.flagsCollection.isButton &&
-              data.hasAction(SemanticsAction.tap)) {
-            actionableBack.add(node);
-          }
-          node.visitChildren((child) {
-            inspect(child);
-            return true;
-          });
-        }
+        expect(find.byIcon(Icons.arrow_back_rounded), findsNothing);
+        expect(find.byTooltip('Back to Today'), findsNothing);
+        expect(find.byTooltip('Back to Insights'), findsNothing);
+        expect(find.bySemanticsLabel('Back to Today'), findsNothing);
 
-        // Widget finders alone miss an IconButton's additional native semantics.
-        inspect(owner.rootSemanticsNode!);
-        expect(actionableBack, hasLength(1));
-        final back = actionableBack.single;
-        expect(back.rect.size, const Size(48, 48));
-        expect(back.rect.size, tester.getSize(find.byTooltip('Back to Today')));
-        final title = tester.getSemantics(find.text('Activity'));
-        final share = tester.getSemantics(find.byTooltip('Share progress'));
-        expect(title.id, isNot(back.id));
+        // The title is a heading, not a control.
+        final title = tester.getSemantics(_title('Insights'));
         expect(
           title.getSemanticsData().hasAction(SemanticsAction.tap),
           isFalse,
         );
-        expect(share.id, isNot(back.id));
+        expect(title.getSemanticsData().flagsCollection.isHeader, isTrue);
+        final share = tester.getSemantics(find.byTooltip('Share progress'));
         expect(share.id, isNot(title.id));
         expect(share.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
 
-        if (activation == 'semantics') {
-          owner.performAction(back.id, SemanticsAction.tap);
-        } else {
-          await tester.tap(find.byIcon(Icons.arrow_back_rounded));
-        }
+        // Patterns is the selected part of the switch.
+        final selected = tester
+            .getSemantics(
+              find
+                  .descendant(
+                    of: find.byKey(InsightsDestinationSwitch.switchKey),
+                    matching: find.bySemanticsLabel('Patterns'),
+                  )
+                  .last,
+            )
+            .getSemanticsData();
+        expect(selected.flagsCollection.isSelected, ui.Tristate.isTrue);
+
+        await tester.tap(
+          find.descendant(
+            of: find.byKey(InsightsDestinationSwitch.switchKey),
+            matching: find.text('Future outcomes'),
+          ),
+        );
         await tester.pump();
-        expect(container.read(appFlowProvider), AppView.nexus);
-        expect(flow.todayCalls, 1);
+        expect(container.read(appFlowProvider), AppView.trajectoryEngine);
+        expect(flow.todayCalls, 0);
       } finally {
         semantics.dispose();
       }
-    });
-  }
-
-  testWidgets(
-    'unavailable review offers retry and recovers without adding work',
-    (WidgetTester tester) async {
-      int attempts = 0;
-      await pumpProgression(
-        tester,
-        trajectory: _activeTrajectory,
-        tasksOverride: (_) => [],
-        timelineOverdue: [],
-        reviewOverride: (_) async => ++attempts == 1
-            ? const ProgressionReview(
-                'Saved evidence is unavailable.',
-                status: ProgressionReviewStatus.unavailable,
-              )
-            : const ProgressionReview('Recovered saved review.'),
-      );
-      await tester.pump();
-      expect(find.text('Saved evidence is unavailable.'), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, 'Add a task'), findsNothing);
-      expect(find.text('PRESSURE'), findsNothing);
-      expect(find.text('No milestones recorded yet.'), findsNothing);
-      expect(
-        find.text(
-          'Saved continuity evidence is unavailable. Retry the progress review below.',
-        ),
-        findsOneWidget,
-      );
-      final retry = find.text('Retry progress review');
-      await tester.ensureVisible(retry);
-      await tester.tap(retry);
-      await tester.pump();
-      await tester.pump();
-      expect(attempts, 2);
-      expect(find.text('Recovered saved review.'), findsOneWidget);
-      expect(find.text('Retry progress review'), findsNothing);
-      expect(find.text('PRESSURE'), findsOneWidget);
     },
   );
 
-  for (final status in <ProgressionReviewStatus>[
-    ProgressionReviewStatus.loading,
-    ProgressionReviewStatus.empty,
-  ]) {
-    testWidgets('$status does not display fallback continuity ratings', (
-      tester,
-    ) async {
-      await pumpProgression(
-        tester,
-        trajectory: _emptyTrajectory,
-        tasksOverride: (_) => [],
-        timelineOverdue: [],
-        reviewOverride: (_) =>
-            ProgressionReview('Unrated review', status: status),
-      );
-      await tester.pump();
-      expect(find.text('PRESSURE'), findsNothing);
-      expect(find.text('No milestones recorded yet.'), findsNothing);
-      expect(
-        find.byKey(const Key('progression-continuity-availability')),
-        findsOneWidget,
-      );
-      if (status == ProgressionReviewStatus.empty) {
-        expect(find.widgetWithText(FilledButton, 'Add a task'), findsOneWidget);
-      } else {
-        expect(find.widgetWithText(FilledButton, 'Add a task'), findsNothing);
-      }
-      expect(tester.takeException(), isNull);
-    });
-  }
-
-  testWidgets('the advisor action opens Creator when no work exists', (
-    WidgetTester tester,
+  testWidgets('the share menu opens and shares the achievement too', (
+    tester,
   ) async {
-    final ProviderContainer container = await pumpProgression(
-      tester,
-      trajectory: _emptyTrajectory,
-      weeklySummaryOverride: (Ref ref) async => _summaryText,
-      tasksOverride: (Ref ref) async => const <Task>[],
-      timelineOverdue: const <TimelineEventEntity>[],
-    );
+    String? clipboardText;
+    _mockShareUnavailable(tester, (String? text) => clipboardText = text);
+    await pumpPatterns(tester);
+
+    final Finder share = find.byTooltip('Share progress');
+    await tester.ensureVisible(share);
+    await tester.tap(share);
     await tester.pump();
-
-    await tester.tap(find.widgetWithText(FilledButton, 'Add a task'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Progress snapshot'), findsOneWidget);
+    await tester.tap(find.text('Achievement'));
     await tester.pump();
-
-    expect(container.read(appFlowProvider), AppView.creator);
-  });
-
-  testWidgets('the advisor action opens Timeline when active work exists', (
-    WidgetTester tester,
-  ) async {
-    final ProviderContainer container = await pumpProgression(
-      tester,
-      trajectory: _activeTrajectory,
-      weeklySummaryOverride: (Ref ref) async => _summaryText,
-      tasksOverride: (Ref ref) async => <Task>[
-        Task(
-          id: 'task-1',
-          title: 'Finish the active thing',
-          priority: 2,
-          difficulty: 2,
-          energyRequired: 2,
-        ),
-      ],
-      timelineOverdue: const <TimelineEventEntity>[],
-    );
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Review achievement snapshot'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Share'));
     await tester.pump();
-
-    await tester.tap(find.widgetWithText(FilledButton, 'Open schedule'));
-    await tester.pump();
-
-    expect(container.read(appFlowProvider), AppView.timeline);
-  });
-
-  testWidgets(
-    'the progress chart reports completion momentum, not estimated XP',
-    (WidgetTester tester) async {
-      final DateTime now = DateTime.now();
-      await pumpProgression(
-        tester,
-        trajectory: _activeTrajectory,
-        savedLogs: [
-          for (int i = 0; i < 5; i++)
-            LogEntryEntity(
-              id: 'saved-$i',
-              source: i == 0
-                  ? 'completed_task'
-                  : i == 1
-                  ? 'goal_completed'
-                  : 'task_completed',
-              message: 'Saved completion',
-              timestamp: now.subtract(Duration(days: i < 2 ? 2 : 1)),
-            ),
-        ],
-      );
-
-      expect(find.text('COMPLETION MOMENTUM'), findsOneWidget);
-      expect(find.text('XP PROGRESSION'), findsNothing);
-      expect(
-        find.text('Last 30 days • 5 tasks and goals completed'),
-        findsOneWidget,
-      );
-    },
-  );
-
-  testWidgets(
-    'recorded skips show declining follow-through, not false success',
-    (WidgetTester tester) async {
-      final now = DateTime.now();
-      await pumpProgression(
-        tester,
-        trajectory: _activeTrajectory,
-        savedLogs: [
-          LogEntryEntity(
-            id: 'previous',
-            source: 'task_completed',
-            message: 'Done',
-            timestamp: now.subtract(const Duration(days: 8)),
-          ),
-          LogEntryEntity(
-            id: 'current',
-            source: 'task_skipped',
-            message: 'Skipped',
-            timestamp: now.subtract(const Duration(hours: 1)),
-          ),
-        ],
-      );
-      expect(find.text('0% completed'), findsOneWidget);
-      expect(find.text('Declining'), findsOneWidget);
-      expect(
-        find.text('Last 30 days • 1 tasks and goals completed'),
-        findsOneWidget,
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets('old and future completions do not populate the current chart', (
-    WidgetTester tester,
-  ) async {
-    final now = DateTime.now();
-    await pumpProgression(
-      tester,
-      trajectory: _activeTrajectory,
-      savedLogs: [
-        LogEntryEntity(
-          id: 'old',
-          source: 'task_completed',
-          message: 'Old',
-          timestamp: now.subtract(const Duration(days: 31)),
-        ),
-        LogEntryEntity(
-          id: 'future',
-          source: 'task_completed',
-          message: 'Future',
-          timestamp: now.add(const Duration(days: 1)),
-        ),
-      ],
-    );
+    await tester.pump(const Duration(milliseconds: 300));
     expect(
-      find.text('No completions were recorded in the last 30 days.'),
+      find.text(
+        'Share sheet unavailable. Achievement summary copied to clipboard.',
+      ),
       findsOneWidget,
     );
-    expect(find.textContaining('Last 30 days •'), findsNothing);
-    expect(find.text('Not enough evidence'), findsOneWidget);
-    expect(tester.takeException(), isNull);
+    expect(clipboardText, contains('Axiomara progress milestone'));
+    expect(clipboardText, isNot(contains('Momentum')));
+    expect(clipboardText, isNot(contains('Pace')));
   });
 
   testWidgets(
     'share progress falls back to clipboard + SnackBar when the share sheet is unavailable',
     (WidgetTester tester) async {
-      // Neither share_plus's platform channel nor the clipboard channel has
-      // a real implementation under flutter_test — an unmocked channel just
-      // hangs forever (never resolves) rather than throwing, so both must be
-      // mocked explicitly: the share channel to simulate "no implementation
-      // available", the clipboard channel to actually record what is set.
       String? clipboardText;
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(SystemChannels.platform, (
-            MethodCall call,
-          ) async {
-            switch (call.method) {
-              case 'Clipboard.setData':
-                clipboardText =
-                    (call.arguments as Map<dynamic, dynamic>)['text']
-                        as String?;
-                return null;
-              case 'Clipboard.getData':
-                return <String, dynamic>{'text': clipboardText};
-              default:
-                return null;
-            }
-          });
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(
-            const MethodChannel('dev.fluttercommunity.plus/share'),
-            (MethodCall call) async {
-              throw PlatformException(
-                code: 'unavailable',
-                message: 'no share implementation in tests',
-              );
-            },
-          );
-      addTearDown(() {
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-            .setMockMethodCallHandler(SystemChannels.platform, null);
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-            .setMockMethodCallHandler(
-              const MethodChannel('dev.fluttercommunity.plus/share'),
-              null,
-            );
-      });
+      _mockShareUnavailable(tester, (String? text) => clipboardText = text);
+      await pumpPatterns(tester);
 
-      await pumpProgression(tester, trajectory: _activeTrajectory);
-
-      await tester.tap(find.byTooltip('Share progress'));
+      final Finder share = find.byTooltip('Share progress');
+      await tester.ensureVisible(share);
+      await tester.tap(share);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(find.text('Progress snapshot'));
@@ -677,40 +245,58 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(clipboardText, contains('Axiomara Progress Snapshot'));
+      expect(clipboardText, contains('Axiomara progress snapshot'));
+      expect(clipboardText, contains('Level'));
+      expect(clipboardText, contains('tasks finished'));
+      // The learned pace score is shown nowhere in the app: not shared.
+      expect(clipboardText, isNot(contains('Pace')));
     },
   );
 }
 
-const String _summaryText =
-    'SYSTEM GUIDANCE REPORT\n\nRecommendation: complete one grounded action.';
-
-class _SavedLogs extends LogsController {
-  _SavedLogs(this.entries);
-  final List<LogEntryEntity> entries;
-  @override
-  LogsState build() => LogsState(entries: entries, isLoading: false);
+/// Neither share_plus's platform channel nor the clipboard channel has a real
+/// implementation under flutter_test (an unmocked channel hangs rather than
+/// throwing), so both are mocked: the share channel to simulate "no
+/// implementation available", the clipboard channel to record what is set.
+void _mockShareUnavailable(
+  WidgetTester tester,
+  void Function(String? text) onClipboard,
+) {
+  String? clipboardText;
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  messenger.setMockMethodCallHandler(SystemChannels.platform, (
+    MethodCall call,
+  ) async {
+    switch (call.method) {
+      case 'Clipboard.setData':
+        clipboardText =
+            (call.arguments as Map<dynamic, dynamic>)['text'] as String?;
+        onClipboard(clipboardText);
+        return null;
+      case 'Clipboard.getData':
+        return <String, dynamic>{'text': clipboardText};
+      default:
+        return null;
+    }
+  });
+  messenger.setMockMethodCallHandler(
+    const MethodChannel('dev.fluttercommunity.plus/share'),
+    (MethodCall call) async {
+      throw PlatformException(
+        code: 'unavailable',
+        message: 'no share implementation in tests',
+      );
+    },
+  );
+  addTearDown(() {
+    messenger.setMockMethodCallHandler(SystemChannels.platform, null);
+    messenger.setMockMethodCallHandler(
+      const MethodChannel('dev.fluttercommunity.plus/share'),
+      null,
+    );
+  });
 }
-
-const TrajectorySummaryView _emptyTrajectory = TrajectorySummaryView(
-  pendingTasks: 0,
-  completedTasks: 0,
-  completedToday: 0,
-  level: 1,
-  streak: 0,
-  energy: 0.5,
-  momentum: 0.0,
-  adaptability: 0.5,
-  lastCompletionXp: 0,
-  lastCompletionQuality: 0.0,
-  pressureIndex: 0,
-  behaviorDivergence: 0,
-  alert: '',
-  predictionTitle: null,
-  predictionOutcome: null,
-  predictionProbability: null,
-  predictionExplanation: null,
-);
 
 class _CountingAppFlowController extends AppFlowController {
   int todayCalls = 0;
@@ -721,43 +307,3 @@ class _CountingAppFlowController extends AppFlowController {
     super.show(view);
   }
 }
-
-const TrajectorySummaryView _activeTrajectory = TrajectorySummaryView(
-  pendingTasks: 4,
-  completedTasks: 27,
-  completedToday: 3,
-  level: 6,
-  streak: 12,
-  energy: 0.78,
-  momentum: 0.66,
-  adaptability: 0.71,
-  lastCompletionXp: 25,
-  lastCompletionQuality: 0.83,
-  pressureIndex: 34,
-  behaviorDivergence: 12,
-  alert: 'Trajectory is calm.',
-  predictionTitle: null,
-  predictionOutcome: null,
-  predictionProbability: null,
-  predictionExplanation: null,
-);
-
-const TrajectorySummaryView _predictiveTrajectory = TrajectorySummaryView(
-  pendingTasks: 2,
-  completedTasks: 9,
-  completedToday: 1,
-  level: 3,
-  streak: 5,
-  energy: 0.6,
-  momentum: 0.4,
-  adaptability: 0.6,
-  lastCompletionXp: 15,
-  lastCompletionQuality: 0.7,
-  pressureIndex: 20,
-  behaviorDivergence: 8,
-  alert: 'Momentum dipping.',
-  predictionTitle: 'Streak at risk',
-  predictionOutcome: 'Streak breaks within two days',
-  predictionProbability: 0.62,
-  predictionExplanation: 'Completion rate fell for three consecutive days.',
-);

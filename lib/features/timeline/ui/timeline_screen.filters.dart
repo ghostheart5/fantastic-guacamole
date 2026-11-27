@@ -24,12 +24,18 @@ bool _inWindow({
   required DateTime moment,
   required DateTime now,
   required _TimelineWindow window,
+  required int firstDayOfWeek,
 }) {
   switch (window) {
     case _TimelineWindow.today:
       return moment.year == now.year &&
           moment.month == now.month &&
           moment.day == now.day;
+    case _TimelineWindow.thisWeek:
+      final int offset = (now.weekday % 7 - firstDayOfWeek) % 7;
+      final DateTime start = DateTime(now.year, now.month, now.day - offset);
+      final DateTime end = DateTime(now.year, now.month, now.day - offset + 7);
+      return !moment.isBefore(start) && moment.isBefore(end);
     case _TimelineWindow.week:
       final DateTime start = DateTime(now.year, now.month, now.day);
       final DateTime end = DateTime(start.year, start.month, start.day + 7);
@@ -46,6 +52,7 @@ bool _inWindow({
 String _windowLabel(_TimelineWindow value) {
   return switch (value) {
     _TimelineWindow.today => 'Today',
+    _TimelineWindow.thisWeek => 'This week',
     _TimelineWindow.week => 'Week',
     _TimelineWindow.month => 'Month',
     _TimelineWindow.year => 'Year',

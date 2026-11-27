@@ -1,5 +1,6 @@
 part of 'trajectory_engine_screen.dart';
 
+/// The forecast's status, shown unless the estimate is simply ready.
 class _TrajectoryStateNotice extends StatelessWidget {
   const _TrajectoryStateNotice({
     required this.status,
@@ -15,6 +16,8 @@ class _TrajectoryStateNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (status == TrajectoryEngineStatus.ready) return const SizedBox.shrink();
+    final String label = _trajectoryStatusLabel(context, status);
     final String localizedDetail = _trajectoryStatusDetail(
       context,
       status,
@@ -23,293 +26,565 @@ class _TrajectoryStateNotice extends StatelessWidget {
     final bool needsAction =
         status == TrajectoryEngineStatus.error ||
         status == TrajectoryEngineStatus.empty;
-    final Color accent = switch (status) {
-      TrajectoryEngineStatus.error => const Color(0xFFFF5D73),
-      TrajectoryEngineStatus.offline ||
-      TrajectoryEngineStatus.learning ||
-      TrajectoryEngineStatus.partial ||
-      TrajectoryEngineStatus.empty => const Color(0xFFFFC857),
-      _ => const Color(0xFF6EE7F9),
-    };
-    final String label = switch (status) {
-      TrajectoryEngineStatus.loading => journeyText(
-        context,
-        'BUILDING BASELINE',
-        'CREANDO LÍNEA BASE',
-      ),
-      TrajectoryEngineStatus.learning => journeyText(
-        context,
-        'LEARNING YOUR PATTERN',
-        'APRENDIENDO TU PATRÓN',
-      ),
-      TrajectoryEngineStatus.ready => journeyText(
-        context,
-        'BASELINE READY',
-        'LÍNEA BASE LISTA',
-      ),
-      TrajectoryEngineStatus.empty => journeyText(
-        context,
-        'EVIDENCE NEEDED',
-        'SE NECESITAN DATOS',
-      ),
-      TrajectoryEngineStatus.partial => journeyText(
-        context,
-        'PARTIAL EVIDENCE',
-        'DATOS PARCIALES',
-      ),
-      TrajectoryEngineStatus.offline => journeyText(
-        context,
-        'LOCAL EVIDENCE',
-        'DATOS LOCALES',
-      ),
-      TrajectoryEngineStatus.error => journeyText(
-        context,
-        'RECALCULATION NEEDED',
-        'SE REQUIERE RECÁLCULO',
-      ),
-    };
+    final TextTheme text = Theme.of(context).textTheme;
     return Semantics(
       container: true,
       liveRegion: true,
-      label: '$label. $localizedDetail',
-      child: TemporalGlassSurface(
-        width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        accent: accent,
-        opacity: .9,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Icon(Icons.route_rounded, color: accent, size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: accent,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    localizedDetail,
-                    style: const TextStyle(
-                      color: Color(0xFFD8E2FF),
-                      fontSize: 12,
-                      height: 1.35,
+      child: PlainCard(
+        key: const Key('future-outcomes-status'),
+        child: Builder(
+          builder: (BuildContext context) {
+            final PlainPalette colors = PlainPalette.of(context);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Text(
+                  label,
+                  style: text.titleSmall?.copyWith(color: colors.primary),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  localizedDetail,
+                  style: text.bodyMedium?.copyWith(color: colors.secondary),
+                ),
+                if (needsAction) ...<Widget>[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: OutlinedButton(
+                      onPressed: status == TrajectoryEngineStatus.empty
+                          ? onCreate
+                          : onRetry,
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(
+                          AppSizes.touchTarget,
+                          AppSizes.touchTarget,
+                        ),
+                      ),
+                      child: Text(
+                        status == TrajectoryEngineStatus.empty
+                            ? journeyText(
+                                context,
+                                'Add a task',
+                                'Añadir una tarea',
+                              )
+                            : journeyText(context, 'Retry', 'Reintentar'),
+                      ),
                     ),
                   ),
                 ],
-              ),
-            ),
-            if (needsAction)
-              TextButton(
-                onPressed: status == TrajectoryEngineStatus.empty
-                    ? onCreate
-                    : onRetry,
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(
-                    AppSizes.touchTarget,
-                    AppSizes.touchTarget,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: Text(
-                  status == TrajectoryEngineStatus.empty
-                      ? journeyText(context, 'Add a task', 'Añadir una tarea')
-                      : journeyText(context, 'Retry', 'Reintentar'),
-                ),
-              ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
   }
 }
 
-String _trajectoryStatusDetail(
-  BuildContext context,
-  TrajectoryEngineStatus status,
-  String detail,
-) {
-  if (Localizations.localeOf(context).languageCode != 'es') return detail;
-  if (status == TrajectoryEngineStatus.learning) {
-    final String? remaining = RegExp(
-      r'Record (\d+) more',
-    ).firstMatch(detail)?.group(1);
-    return remaining == null
-        ? 'Registra más resultados de tareas antes de comparar caminos futuros. Todavía no se muestra un pronóstico personal.'
-        : 'Registra $remaining ${remaining == '1' ? 'resultado más' : 'resultados más'} de tareas antes de que Axiomara compare caminos futuros. Todavía no se muestra un pronóstico personal.';
-  }
-  return switch (detail) {
-    'Trajectory evidence could not be reconciled. No future conclusion is currently valid.' =>
-      'No se pudieron conciliar los datos de trayectoria. Ninguna conclusión futura es válida en este momento.',
-    'Building a revisioned baseline before comparing future paths.' =>
-      'Creando una línea base con revisión antes de comparar caminos futuros.',
-    'Add a task with an estimate and, when relevant, a goal or deadline before simulating consequences.' =>
-      'Añade una tarea con una estimación y, cuando corresponda, una meta o fecha límite antes de simular consecuencias.',
-    'No network interface is available. Using local evidence without network-backed freshness.' =>
-      'No hay conexión de red disponible. Se usan datos locales sin una comprobación reciente en la red.',
-    'Using local evidence while network interface availability is checked.' =>
-      'Se usan datos locales mientras se comprueba la conexión de red.',
-    'Future paths are conditional models. Working availability is not configured, so capacity risk, goal dates, and best-fit claims are withheld.' =>
-      'Los caminos futuros son modelos condicionales. La disponibilidad de trabajo no está configurada, por lo que se omiten el riesgo de capacidad, las fechas de las metas y las recomendaciones de mejor ajuste.',
-    'The scenario comparison is available, but one supporting intelligence source is incomplete.' =>
-      'La comparación de escenarios está disponible, pero una fuente de inteligencia de apoyo está incompleta.',
-    'This estimate combines your current plan, schedule, goals, and recorded activity.' =>
-      'La línea base actual, el plan de Elegir un paso, los vínculos de la agenda, las metas y las señales de progreso están conciliados.',
-    _ => switch (status) {
-      TrajectoryEngineStatus.loading => 'Creando la línea base.',
-      TrajectoryEngineStatus.learning =>
-        'Aprendiendo tu patrón antes de mostrar un pronóstico personal.',
-      TrajectoryEngineStatus.ready => 'Los datos actuales están conciliados.',
-      TrajectoryEngineStatus.empty =>
-        'Añade una tarea con una estimación antes de simular consecuencias.',
-      TrajectoryEngineStatus.partial => 'Hay datos parciales disponibles.',
-      TrajectoryEngineStatus.offline =>
-        'Se usan datos locales mientras no haya conexión.',
-      TrajectoryEngineStatus.error =>
-        'No se pudieron conciliar los datos de trayectoria.',
-    },
-  };
-}
+/// Secondary text in the card palette.
+TextStyle? _secondaryText(BuildContext context) => Theme.of(
+  context,
+).textTheme.bodyMedium?.copyWith(color: PlainPalette.of(context).secondary);
 
-class _BaselineCard extends StatelessWidget {
-  const _BaselineCard({required this.baseline});
+/// A small heading inside a card.
+Widget _cardHeading(BuildContext context, String title) => Padding(
+  padding: const EdgeInsets.only(top: 12, bottom: 4),
+  child: Text(
+    title,
+    // At least as large as the row labels under it.
+    style: Theme.of(
+      context,
+    ).textTheme.titleMedium?.copyWith(color: PlainPalette.of(context).primary),
+  ),
+);
+
+/// Bulleted lines in the card palette.
+Widget _bullets(BuildContext context, List<String> lines) => Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: <Widget>[
+    for (final String line in lines)
+      Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Text('• $line', style: _secondaryText(context)),
+      ),
+  ],
+);
+
+/// "What this is based on": the records and assumptions behind the estimate.
+class _BasedOnDetails extends StatelessWidget {
+  const _BasedOnDetails({required this.baseline, required this.model});
 
   final TrajectoryBaseline baseline;
+  final TrajectoryEngineModel model;
 
   @override
   Widget build(BuildContext context) {
-    return _Panel(
-      title: journeyText(
-        context,
-        'Current plan estimates',
-        'Estimaciones del plan actual',
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: <Widget>[
-              _BaselineMetric(
-                label: journeyText(context, 'Momentum', 'Impulso'),
-                value: journeyText(
-                  context,
-                  'modeled ${baseline.momentum}/100',
-                  '${baseline.momentum}/100 modelado',
-                ),
-              ),
-              _BaselineMetric(
-                label: journeyText(context, 'Pressure', 'Presión'),
-                value: journeyText(
-                  context,
-                  'modeled ${baseline.pressure}/100',
-                  '${baseline.pressure}/100 modelada',
-                ),
-              ),
-              _BaselineMetric(
-                label: journeyText(context, 'Energy', 'Energía'),
-                value: baseline.hasObservedEnergy
-                    ? journeyText(
-                        context,
-                        '${baseline.energy}% observed',
-                        '${baseline.energy}% registrada',
-                      )
-                    : journeyText(context, 'not observed', 'sin registro'),
-              ),
-              _BaselineMetric(
-                label: journeyText(
-                  context,
-                  'Observed outcomes',
-                  'Resultados observados',
-                ),
-                value: '${baseline.observationCount}',
-              ),
-              _BaselineMetric(
-                label: journeyText(
-                  context,
-                  'Capacity gap',
-                  'Brecha de capacidad',
-                ),
-                value: baseline.hasObservedAvailability
-                    ? '${baseline.unscheduledMinutes}m'
-                    : journeyText(context, 'not scored', 'sin calcular'),
-              ),
-              _BaselineMetric(
-                label: journeyText(context, 'Activity', 'Actividad'),
-                value:
-                    'L${baseline.progression.level} • ${baseline.progression.streak}d',
-              ),
-            ],
+    final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
+    final String freeTime =
+        baseline.dailyFreeOrigin == PredictiveEvidenceOrigin.observed
+        ? journeyText(
+            context,
+            'From your working hours.',
+            'De tu horario de trabajo.',
+          )
+        : journeyText(
+            context,
+            'From an assumed workday (no working hours set).',
+            'De una jornada supuesta (sin horario de trabajo).',
+          );
+    final String energy = baseline.hasObservedEnergy
+        ? (isSpanish ? 'registrada' : 'recorded')
+        : isSpanish
+        ? _spanishUnobservedEvidenceState(baseline.energyOrigin)
+        : _englishUnobservedEvidenceState(baseline.energyOrigin);
+    final String availability = baseline.hasObservedAvailability
+        ? (isSpanish ? 'registrada' : 'recorded')
+        : isSpanish
+        ? _spanishUnobservedEvidenceState(baseline.availabilityOrigin)
+        : _englishUnobservedEvidenceState(baseline.availabilityOrigin);
+    final List<String> assumptions = _trajectoryAssumptionTexts(
+      context,
+      baseline.assumptions,
+      const <String>[],
+    ).where((String a) => a.trim().isNotEmpty).toList(growable: false);
+    return Column(
+      key: const Key('future-outcomes-based-on-details'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        PlainMetricRow(
+          label: journeyText(
+            context,
+            'Task outcomes recorded',
+            'Resultados de tareas registrados',
           ),
-          const SizedBox(height: 10),
-          if (baseline.personContextWarnings.isNotEmpty) ...<Widget>[
-            Text(
-              Localizations.localeOf(context).languageCode == 'es'
-                  ? 'Esta estimación: ${baseline.availableMinutes} min disponibles / ${baseline.unscheduledMinutes} min sin programar. '
-                        'Comparación sin información compartida: ${baseline.noContextAvailableMinutes} min disponibles / ${baseline.noContextUnscheduledMinutes} min sin programar.'
-                  : 'This estimate: ${baseline.availableMinutes}m available / ${baseline.unscheduledMinutes}m unscheduled. '
-                        'Comparison without shared information: ${baseline.noContextAvailableMinutes}m available / ${baseline.noContextUnscheduledMinutes}m unscheduled.',
-              style: const TextStyle(
-                color: Color(0xFFFFC857),
-                fontSize: 11,
-                height: 1.35,
-              ),
+          value: '${baseline.observationCount}',
+          caption: journeyText(
+            context,
+            'In the last ${baseline.evidenceWindow.inDays} days: ${baseline.completedInWindow} finished, ${baseline.deferredInWindow} put off.',
+            'En los últimos ${baseline.evidenceWindow.inDays} días: ${baseline.completedInWindow} terminadas, ${baseline.deferredInWindow} aplazadas.',
+          ),
+          provenance: ProvenanceKind.recorded,
+        ),
+        PlainMetricRow(
+          label: journeyText(context, 'Free time a day', 'Tiempo libre al día'),
+          value: journeyText(
+            context,
+            '${baseline.dailyFreeMinutes} min',
+            '${baseline.dailyFreeMinutes} min',
+          ),
+          caption: freeTime,
+          provenance:
+              baseline.dailyFreeOrigin == PredictiveEvidenceOrigin.observed
+              ? ProvenanceKind.plan
+              : ProvenanceKind.estimate,
+        ),
+        PlainMetricRow(
+          label: journeyText(
+            context,
+            'Work needed in this range',
+            'Trabajo necesario en este periodo',
+          ),
+          value: '${baseline.requiredMinutesInHorizon} min',
+          provenance: ProvenanceKind.plan,
+        ),
+        PlainMetricRow(
+          label: journeyText(context, 'Pace now', 'Ritmo actual'),
+          value: journeyText(
+            context,
+            '${_paceBand(context, baseline.momentum)}, ${baseline.momentum} of 100',
+            '${_paceBand(context, baseline.momentum)}, ${baseline.momentum} de 100',
+          ),
+          provenance: ProvenanceKind.estimate,
+        ),
+        PlainMetricRow(
+          label: journeyText(context, 'Energy', 'Energía'),
+          value: baseline.hasObservedEnergy
+              ? '${baseline.energy}%'
+              : journeyText(context, 'Not recorded', 'Sin registro'),
+          provenance: baseline.hasObservedEnergy
+              ? ProvenanceKind.recorded
+              : null,
+        ),
+        PlainMetricRow(
+          label: journeyText(
+            context,
+            'Unscheduled work',
+            'Trabajo sin programar',
+          ),
+          value: baseline.hasObservedAvailability
+              ? '${baseline.unscheduledMinutes} min'
+              : journeyText(context, 'Not worked out', 'Sin calcular'),
+          // The planner's capacity for today, not the selected range.
+          caption: journeyText(
+            context,
+            'Today, not the selected range.',
+            'Hoy, no el periodo elegido.',
+          ),
+          provenance: baseline.hasObservedAvailability
+              ? ProvenanceKind.plan
+              : null,
+        ),
+        PlainMetricRow(
+          label: journeyText(context, 'Progress', 'Progreso'),
+          value: journeyText(
+            context,
+            'Level ${baseline.progression.level}, ${baseline.progression.streak}-day streak',
+            'Nivel ${baseline.progression.level}, racha de ${baseline.progression.streak} días',
+          ),
+          provenance: ProvenanceKind.recorded,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _basedOnCounts(baseline, isSpanish),
+          style: _secondaryText(context),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          isSpanish
+              ? 'Energía: $energy. Disponibilidad: $availability. Las duraciones de las tareas son estimaciones y los efectos de las fechas límite son proyecciones.'
+              : 'Energy: $energy. Availability: $availability. Task durations are estimates and deadline effects are projections.',
+          style: _secondaryText(context),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          isSpanish
+              ? 'Confianza ${_trajectoryConfidenceLabel(context, baseline.confidence.band)} • datos de los últimos ${baseline.evidenceWindow.inDays} días'
+              : '${_trajectoryConfidenceLabel(context, baseline.confidence.band)} confidence • records from the last ${baseline.evidenceWindow.inDays} days',
+          style: _secondaryText(context),
+        ),
+        if (baseline.personContextWarnings.isNotEmpty) ...<Widget>[
+          _cardHeading(
+            context,
+            journeyText(
+              context,
+              'Information you shared',
+              'Información que compartiste',
             ),
-            const SizedBox(height: 6),
-            ...baseline.personContextWarnings.map(
-              (String warning) => Text(
-                '• ${_trajectorySharedInformationWarningText(context, warning)}',
-                style: const TextStyle(
-                  color: Color(0xFFD8E2FF),
-                  fontSize: 11,
-                  height: 1.35,
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-          ],
+          ),
           Text(
-            Localizations.localeOf(context).languageCode == 'es'
-                ? '${baseline.tasks.length} tarea(s), ${baseline.goals.length} meta(s) activa(s), '
-                      '${baseline.blocks.length} bloque(s) planificado(s) y ${baseline.timelineSignals.length} señal(es) vinculada(s) de la agenda.'
-                : '${baseline.tasks.length} task(s), ${baseline.goals.length} active goal(s), '
-                      '${baseline.blocks.length} planned block(s), and ${baseline.timelineSignals.length} linked Schedule signal(s).',
-            style: const TextStyle(
-              color: Color(0xFFD8E2FF),
-              fontSize: 12,
-              height: 1.35,
-            ),
+            isSpanish
+                ? 'Esta estimación: ${baseline.availableMinutes} min disponibles / ${baseline.unscheduledMinutes} min sin programar. '
+                      'Comparación sin información compartida: ${baseline.noContextAvailableMinutes} min disponibles / ${baseline.noContextUnscheduledMinutes} min sin programar.'
+                : 'This estimate: ${baseline.availableMinutes}m available / ${baseline.unscheduledMinutes}m unscheduled. '
+                      'Comparison without shared information: ${baseline.noContextAvailableMinutes}m available / ${baseline.noContextUnscheduledMinutes}m unscheduled.',
+            style: _secondaryText(context),
           ),
-          const SizedBox(height: 6),
-          Text(
-            Localizations.localeOf(context).languageCode == 'es'
-                ? 'Confianza ${_trajectoryConfidenceLabel(context, baseline.confidence.band)} • ventana de datos de ${baseline.evidenceWindow.inDays} días'
-                : '${_trajectoryConfidenceLabel(context, baseline.confidence.band)} confidence • ${baseline.evidenceWindow.inDays}-day evidence window',
-            style: const TextStyle(
-              color: Color(0xFF93A4D6),
-              fontSize: 11,
-              height: 1.3,
-            ),
-          ),
+          const SizedBox(height: 4),
+          _bullets(context, <String>[
+            for (final String warning in baseline.personContextWarnings)
+              _trajectorySharedInformationWarningText(context, warning),
+          ]),
         ],
-      ),
+        _cardHeading(context, journeyText(context, 'Assumptions', 'Supuestos')),
+        if (assumptions.isEmpty)
+          Text(
+            journeyText(
+              context,
+              'No extra assumptions for your plan now.',
+              'No hay supuestos adicionales para tu plan actual.',
+            ),
+            style: _secondaryText(context),
+          )
+        else
+          _bullets(context, assumptions),
+        _cardHeading(
+          context,
+          journeyText(
+            context,
+            'Follow-through on your tasks',
+            'Cumplimiento de tus tareas',
+          ),
+        ),
+        _TaskPredictionDetails(model: model),
+      ],
     );
   }
 }
 
-class _TaskPredictionCard extends StatelessWidget {
-  const _TaskPredictionCard({required this.model});
+/// "2 tasks, no goals, 1 planned block and 4 Schedule entries."
+String _basedOnCounts(TrajectoryBaseline baseline, bool es) {
+  String count(int n, String none, String one, String many) =>
+      n == 0 ? none : (n == 1 ? one : '$n $many');
+  final List<String> parts = es
+      ? <String>[
+          count(baseline.tasks.length, 'ninguna tarea', '1 tarea', 'tareas'),
+          count(baseline.goals.length, 'ninguna meta', '1 meta', 'metas'),
+          count(
+            baseline.blocks.length,
+            'ningún bloque planificado',
+            '1 bloque planificado',
+            'bloques planificados',
+          ),
+          count(
+            baseline.timelineSignals.length,
+            'ninguna entrada de la agenda',
+            '1 entrada de la agenda',
+            'entradas de la agenda',
+          ),
+        ]
+      : <String>[
+          count(baseline.tasks.length, 'no tasks', '1 task', 'tasks'),
+          count(baseline.goals.length, 'no goals', '1 goal', 'goals'),
+          count(
+            baseline.blocks.length,
+            'no planned blocks',
+            '1 planned block',
+            'planned blocks',
+          ),
+          count(
+            baseline.timelineSignals.length,
+            'no Schedule entries',
+            '1 Schedule entry',
+            'Schedule entries',
+          ),
+        ];
+  final String joined =
+      '${parts.take(3).join(', ')} ${es ? 'y' : 'and'} ${parts.last}.';
+  return joined[0].toUpperCase() + joined.substring(1);
+}
+
+/// The planning summary's fixed "why it matters" sentences in plain words;
+/// anything else (shared personal information) is shown as written.
+String _planningWhyText(BuildContext context, String value) => switch (value) {
+  'It converts the strongest available signal into measurable forward movement.' =>
+    journeyText(
+      context,
+      'This is the step most likely to move your plan forward.',
+      'Es el paso con más probabilidades de hacer avanzar tu plan.',
+    ),
+  'It reduces current schedule risk and prevents overdue pressure from compounding.' =>
+    journeyText(
+      context,
+      'It lowers the risk in your schedule now and keeps overdue work from piling up.',
+      'Reduce el riesgo actual de tu agenda y evita que se acumule el trabajo vencido.',
+    ),
+  'It protects the highest-ranked commitment while the current plan exceeds modeled capacity.' =>
+    journeyText(
+      context,
+      'It keeps your top task safe while your plan needs more time than you have.',
+      'Protege tu tarea principal mientras tu plan necesita más tiempo del que tienes.',
+    ),
+  _ => value,
+};
+
+/// Today's planning summary (the decision provider's snapshot), in plain
+/// rows. Its figures are today's, not the selected range's, and say so.
+class _PlanningSummary extends StatelessWidget {
+  const _PlanningSummary({required this.intelligence, required this.onAction});
+
+  final DecisionIntelligence intelligence;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final OperatingSnapshot snapshot = intelligence.snapshot;
+    final OperatingDecisionReceipt decision = intelligence.decision;
+    final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
+    final String today = journeyText(
+      context,
+      'Today, not the selected range.',
+      'Hoy, no el periodo elegido.',
+    );
+    final String confidence = switch (decision.confidence) {
+      OperatingConfidence.high => journeyText(context, 'high', 'alta'),
+      OperatingConfidence.moderate => journeyText(
+        context,
+        'moderate',
+        'moderada',
+      ),
+      OperatingConfidence.low => journeyText(context, 'low', 'baja'),
+      OperatingConfidence.insufficientEvidence => journeyText(
+        context,
+        'insufficient',
+        'insuficiente',
+      ),
+    };
+    return Column(
+      key: const Key('future-outcomes-planning-summary'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _cardHeading(
+          context,
+          journeyText(
+            context,
+            "Today's planning summary",
+            'Resumen de planificación de hoy',
+          ),
+        ),
+        Text(
+          journeyText(
+            context,
+            'From your records and plan today. Confidence: $confidence.',
+            'De tus registros y tu plan de hoy. Confianza: $confidence.',
+          ),
+          style: _secondaryText(context),
+        ),
+        PlainMetricRow(
+          label: journeyText(context, 'To do', 'Por hacer'),
+          value: '${snapshot.actionableCount}',
+          provenance: ProvenanceKind.recorded,
+        ),
+        PlainMetricRow(
+          label: journeyText(context, 'Overdue', 'Vencidas'),
+          value: '${snapshot.overdueCount}',
+          provenance: ProvenanceKind.recorded,
+        ),
+        PlainMetricRow(
+          label: journeyText(context, 'Finished today', 'Terminadas hoy'),
+          value: '${snapshot.completedToday}',
+          provenance: ProvenanceKind.recorded,
+        ),
+        // No "workload" row here: the planning summary's score counts open
+        // tasks, which is a different measure from the forecast's
+        // capacity-based workload, the only figure this screen calls workload.
+        PlainMetricRow(
+          label: journeyText(context, 'Pace today', 'Ritmo hoy'),
+          value: journeyText(
+            context,
+            '${_paceBand(context, snapshot.momentum)}, ${snapshot.momentum} of 100',
+            '${_paceBand(context, snapshot.momentum)}, ${snapshot.momentum} de 100',
+          ),
+          caption: today,
+          provenance: ProvenanceKind.estimate,
+        ),
+        _cardHeading(
+          context,
+          journeyText(context, 'What changed', 'Qué cambió'),
+        ),
+        Text(
+          _planningChanges(context, intelligence.delta, isSpanish),
+          style: _secondaryText(context),
+        ),
+        _cardHeading(
+          context,
+          journeyText(context, 'What matters next', 'Qué importa ahora'),
+        ),
+        Text(
+          decision.recommendedAction,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: PlainPalette.of(context).primary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        _cardHeading(context, journeyText(context, 'Why', 'Por qué')),
+        Text(
+          '${decision.rationale} ${_planningWhyText(context, decision.whyItMatters)}',
+          style: _secondaryText(context),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: OutlinedButton(
+            onPressed: decision.isExpired ? null : onAction,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(
+                AppSizes.touchTarget,
+                AppSizes.touchTarget,
+              ),
+            ),
+            child: Text(_planningActionLabel(decision.actionIntent, isSpanish)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// What changed since the last summary, in the glossary's words.
+String _planningChanges(
+  BuildContext context,
+  OperatingDelta delta,
+  bool isSpanish,
+) {
+  if (delta.isBaseline) {
+    return journeyText(
+      context,
+      'This is the first summary; later ones show what changed.',
+      'Es el primer resumen; los siguientes muestran qué cambió.',
+    );
+  }
+  // The summary's risk score counts open tasks; it is not the forecast's
+  // workload, so its change is not listed under that name (or any other).
+  final List<OperatingChange> changes = delta.materialChanges
+      .where((OperatingChange item) => item.kind != OperatingChangeKind.risk)
+      .toList(growable: false);
+  if (changes.isEmpty) {
+    return delta.previousSnapshotId == delta.currentSnapshotId
+        ? journeyText(
+            context,
+            'No important changes since the last check.',
+            'No hubo cambios importantes desde la última revisión.',
+          )
+        : journeyText(
+            context,
+            'Your records changed, but nothing important for this choice.',
+            'Tus registros cambiaron, pero nada importante para esta elección.',
+          );
+  }
+  return changes
+      .take(3)
+      .map((OperatingChange item) {
+        final String label = switch (item.kind) {
+          OperatingChangeKind.priority => journeyText(
+            context,
+            'Top action',
+            'Acción principal',
+          ),
+          OperatingChangeKind.schedule => journeyText(
+            context,
+            'Overdue',
+            'Vencidas',
+          ),
+          OperatingChangeKind.momentum => journeyText(context, 'Pace', 'Ritmo'),
+          // Filtered out above.
+          OperatingChangeKind.risk => '',
+          OperatingChangeKind.progression => journeyText(
+            context,
+            'Finished today',
+            'Terminadas hoy',
+          ),
+          OperatingChangeKind.evidence => journeyText(
+            context,
+            'Records available',
+            'Registros disponibles',
+          ),
+        };
+        final String to = isSpanish ? 'a' : 'to';
+        // Units, so a figure reads the same here as in its own row.
+        return switch (item.kind) {
+          OperatingChangeKind.momentum =>
+            '$label: ${item.previousValue} $to ${item.currentValue} ${isSpanish ? 'de' : 'of'} 100',
+          OperatingChangeKind.evidence =>
+            '$label: ${item.previousValue}% $to ${item.currentValue}%',
+          _ => '$label: ${item.previousValue} $to ${item.currentValue}',
+        };
+      })
+      .join('. ');
+}
+
+String _planningActionLabel(OperatingActionIntent intent, bool isSpanish) {
+  // This action opens My plan (not the Schedule), so it says so; the
+  // selected option's "Review on Schedule" is the one that opens Schedule.
+  if (intent.type == OperatingActionType.openTimeline) {
+    return isSpanish ? 'Abrir Mi plan' : 'Open My plan';
+  }
+  if (!isSpanish) return intent.label;
+  return switch (intent.type) {
+    OperatingActionType.openCreator => 'Añadir algo',
+    OperatingActionType.openSmartPlanner => 'Revisar en Elegir un paso',
+    OperatingActionType.openSiConsole => 'Revisar evidencia en Chat',
+    OperatingActionType.openTrajectoryEngine =>
+      'Revisar riesgo en Perspectivas',
+    OperatingActionType.openProgression => 'Revisar recuperación en Patrones',
+    OperatingActionType.openTimeline => 'Revisar en agenda',
+    _ => intent.label,
+  };
+}
+
+/// How often tasks like the next one were finished, from recorded outcomes.
+class _TaskPredictionDetails extends StatelessWidget {
+  const _TaskPredictionDetails({required this.model});
 
   final TrajectoryEngineModel model;
 
@@ -317,20 +592,9 @@ class _TaskPredictionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final summary = model.summary;
     if (!summary.hasPrediction) {
-      return _Panel(
-        title: journeyText(
-          context,
-          'Observed follow-through',
-          'Seguimiento observado',
-        ),
-        child: Text(
-          _trajectoryGeneratedText(context, summary.statusDetail),
-          style: const TextStyle(
-            color: Color(0xFFD8E2FF),
-            fontSize: 12,
-            height: 1.35,
-          ),
-        ),
+      return Text(
+        _trajectoryGeneratedText(context, summary.statusDetail),
+        style: _secondaryText(context),
       );
     }
     final bool pooledHistory = (summary.predictionExplanation ?? '').startsWith(
@@ -340,1088 +604,693 @@ class _TaskPredictionCard extends StatelessWidget {
         .round();
     final int lower = ((summary.predictionLowerBound ?? 0) * 100).round();
     final int upper = ((summary.predictionUpperBound ?? 1) * 100).round();
-    return _Panel(
-      title: journeyText(
+    final PlainPalette colors = PlainPalette.of(context);
+    return Column(
+      key: const Key('future-outcomes-follow-through'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          summary.predictionSampleSize == 0
+              ? journeyText(
+                  context,
+                  'No recorded task outcomes are available for this estimate.',
+                  'No hay resultados de tareas registrados disponibles para esta estimación.',
+                )
+              // The follow-through history (every finished or skipped task
+              // it has recorded), not the last 7 days counted above.
+              : pooledHistory
+              ? journeyText(
+                  context,
+                  'From ${summary.predictionSampleSize} finished or skipped tasks in your follow-through history (any time). This task has no history yet.',
+                  'De ${summary.predictionSampleSize} tareas terminadas u omitidas en tu historial de cumplimiento (de cualquier fecha). Esta tarea aún no tiene historial.',
+                )
+              : journeyText(
+                  context,
+                  'From ${summary.predictionSampleSize} times you finished or skipped this task (any time).',
+                  'De ${summary.predictionSampleSize} veces que terminaste u omitiste esta tarea (de cualquier fecha).',
+                ),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: colors.primary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${summary.predictionTitle}: ${_trajectoryGeneratedText(context, summary.predictionOutcome ?? '')}',
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: colors.primary),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          Localizations.localeOf(context).languageCode == 'es'
+              ? 'Probabilidad estimada de terminarla: $probability% (probablemente entre $lower% y $upper%)'
+              : 'Estimated chance of finishing it: $probability% (likely $lower% to $upper%)',
+          style: _secondaryText(context),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _trajectoryGeneratedText(
+            context,
+            summary.predictionExplanation ?? '',
+          ),
+          style: _secondaryText(context),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          // What the estimate is based on, in words (never a model id).
+          '${summary.predictionEvidenceSufficient ? journeyText(context, 'Established history', 'Historial consolidado') : journeyText(context, 'Limited history', 'Historial limitado')} • ${journeyText(context, 'Based on the tasks you finished or skipped', 'Según las tareas que terminaste u omitiste')}',
+          style: _secondaryText(context),
+        ),
+        const SizedBox(height: 4),
+        const ProvenanceLabel(ProvenanceKind.estimate),
+      ],
+    );
+  }
+}
+
+/// "Forecast monitoring": what recorded accuracy does to the ranges, and that
+/// the keep-going forecast is recorded automatically on this device.
+class _MonitoringDetails extends StatelessWidget {
+  const _MonitoringDetails({required this.summary});
+
+  final AsyncValue<TrajectoryCalibrationSummary> summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
+    final TrajectoryCalibrationSummary? value = summary.asData?.value;
+    // Label and text follow the rule actually applied to the ranges.
+    final bool adjusting =
+        value != null &&
+        !TrajectoryCalibrationAdjustment.fromSummary(value).isProvisional;
+    final String state = value == null
+        ? (summary.isLoading
+              ? (isSpanish ? 'cargando' : 'loading')
+              : (isSpanish ? 'no disponible' : 'unavailable'))
+        : !adjusting
+        ? 'provisional'
+        : (isSpanish ? 'supervisado' : 'monitored');
+    final String? earlier = value == null || value.earlierMethodForecasts == 0
+        ? null
+        : isSpanish
+        ? 'Conservadas de un método anterior pero no usadas: ${value.earlierMethodForecasts}.'
+        : 'Kept from an earlier method but not used: ${value.earlierMethodForecasts}.';
+    final String? missed = value == null || value.missedForecasts == 0
+        ? null
+        : isSpanish
+        ? 'Vencidas hace demasiado para comprobarlas, no usadas: ${value.missedForecasts}.'
+        : 'Due too long ago to be checked, not used: ${value.missedForecasts}.';
+    final List<String> lines = <String>[
+      if (value == null)
+        isSpanish
+            ? 'La información de seguimiento no está disponible ahora.'
+            : 'Monitoring information is not available right now.'
+      else if (value.resolvedForecasts == 0 && !value.hasSetAside)
+        isSpanish
+            ? 'Ninguna previsión registrada ha llegado aún a su fecha final, así que los rangos se mantienen como se estimaron.'
+            : 'No recorded forecast has reached its end date yet, so the ranges stay as estimated.'
+      else if (value.resolvedForecasts == 0)
+        // Some fell due but were set aside unchecked (counted below).
+        isSpanish
+            ? 'Todavía no se ha comprobado ninguna previsión registrada con tus registros, así que los rangos se mantienen como se estimaron.'
+            : 'No recorded forecast has been checked against your records yet, so the ranges stay as estimated.'
+      else ...<String>[
+        isSpanish
+            ? '${value.resolvedForecasts} previsiones comprobadas • error medio de ritmo ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} puntos • error medio de carga ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} puntos • ${(value.intervalCoverage * 100).round()}% dentro de su rango.'
+            : '${value.resolvedForecasts} forecasts checked • average pace error ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} points • average workload error ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} points • ${(value.intervalCoverage * 100).round()}% inside their range.',
+        isSpanish
+            ? 'La parte dentro del rango usa solo el ritmo y se promedia por los días en que se comprobaron las previsiones.'
+            : 'The share inside the range uses pace only and is averaged over the days forecasts were checked.',
+        adjusting
+            ? (isSpanish
+                  ? 'Los rangos se amplían según la precisión registrada cuando hay al menos 3 previsiones comprobadas en 2 o más días, y solo se estrechan tras comprobaciones en 5 o más días repartidos en al menos 14 días. Previsiones usadas: ${value.resolvedForecasts}.'
+                  : 'Ranges are widened from recorded accuracy once at least 3 forecasts have been checked on 2 or more days, and narrowed only after checks on 5 or more days spread over at least 14 days. Forecasts used: ${value.resolvedForecasts}.')
+            : (isSpanish
+                  ? 'Los rangos se mantienen como se estimaron hasta que haya al menos 3 previsiones comprobadas en 2 o más días. Comprobadas hasta ahora: ${value.resolvedForecasts}.'
+                  : 'Ranges stay as estimated until at least 3 forecasts have been checked on 2 or more days. Checked so far: ${value.resolvedForecasts}.'),
+      ],
+      ?earlier,
+      ?missed,
+      isSpanish
+          ? 'La previsión de “seguir como vas” se registra automáticamente en este dispositivo: como mucho una vez al día para 7 días y una vez a la semana para 30 y 90 días. Nada sale de este dispositivo.'
+          : 'The “keep going” forecast is recorded automatically on this device: at most once a day for 7 days, and once a week for 30 and 90 days. Nothing leaves this device.',
+    ];
+    final PlainPalette colors = PlainPalette.of(context);
+    return Column(
+      key: const Key('future-outcomes-monitoring-details'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          isSpanish ? 'Estado: $state' : 'Status: $state',
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(color: colors.primary),
+        ),
+        const SizedBox(height: 4),
+        for (final String line in lines)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(line, style: _secondaryText(context)),
+          ),
+      ],
+    );
+  }
+}
+
+/// "How this helps you", in plain words, true of the current forecast.
+class _HowThisHelps extends StatelessWidget {
+  const _HowThisHelps();
+
+  @override
+  Widget build(BuildContext context) {
+    return _bullets(context, <String>[
+      journeyText(
         context,
-        'Observed follow-through',
-        'Seguimiento observado',
+        'It reads what you already put in Axiomara: your tasks with their dates and times, your goals, your working hours and your energy check-ins.',
+        'Lee lo que ya pusiste en Axiomara: tus tareas con sus fechas y horas, tus metas, tu horario de trabajo y tus registros de energía.',
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            summary.predictionSampleSize == 0
-                ? journeyText(
-                    context,
-                    'No recorded task outcomes are available for this estimate.',
-                    'No hay resultados de tareas registrados disponibles para esta estimación.',
-                  )
-                : pooledHistory
-                ? journeyText(
-                    context,
-                    'Across ${summary.predictionSampleSize} recorded task outcomes — no history for this task.',
-                    'Basado en ${summary.predictionSampleSize} resultados de otras tareas; sin historial para esta tarea.',
-                  )
-                : journeyText(
-                    context,
-                    'Based on ${summary.predictionSampleSize} recorded task outcomes.',
-                    'Basado en ${summary.predictionSampleSize} resultados de tareas registrados.',
-                  ),
-            style: const TextStyle(
-              color: Color(0xFFFFC857),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '${summary.predictionTitle}: ${_trajectoryGeneratedText(context, summary.predictionOutcome ?? '')}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            Localizations.localeOf(context).languageCode == 'es'
-                ? '$probability% de finalización estimada • intervalo $lower–$upper% • ${summary.predictionSampleSize} resultados'
-                : '$probability% smoothed completion estimate • $lower–$upper% interval • ${summary.predictionSampleSize} outcomes',
-            style: const TextStyle(
-              color: Color(0xFFFFC857),
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            _trajectoryGeneratedText(
+      journeyText(
+        context,
+        'It shows a few options: keep going as you are, let the planner rearrange your day, finish a task, put one off, cut something, or catch up on something you missed.',
+        'Muestra algunas opciones: seguir como vas, dejar que el planificador reorganice tu día, terminar una tarea, aplazar una, recortar algo o ponerte al día con algo pendiente.',
+      ),
+      journeyText(
+        context,
+        'Pick an option to see how your workload and pace could change. The time range (7, 30 or 90 days) changes the estimate: it sets which tasks count and how much free time there is. Further ahead is less reliable, so the ranges are wider. “Recommended adjustment” marks the option that looks best right now, once there is enough history.',
+        'Elige una opción para ver cómo podrían cambiar tu carga de trabajo y tu ritmo. El periodo (7, 30 o 90 días) cambia la estimación: decide qué tareas cuentan y cuánto tiempo libre hay. Cuanto más lejos, menos fiable, por eso los rangos son más amplios. “Ajuste recomendado” marca la opción que mejor se ve ahora, cuando hay suficiente historial.',
+      ),
+      journeyText(
+        context,
+        'Nothing changes until you use the button on the option you picked (such as Mark done… or Edit this task) and confirm. These are estimates, not promises.',
+        'Nada cambia hasta que usas el botón de la opción que elegiste (como Marcar como hecha… o Editar esta tarea) y lo confirmas. Son estimaciones, no promesas.',
+      ),
+      journeyText(
+        context,
+        '${InsightsCopy.patternsEn} shows what you have actually done: tasks finished, habits and streaks. Use the switch at the top to open it.',
+        'En ${InsightsCopy.patternsEs} ves lo que de verdad hiciste: tareas terminadas, hábitos y rachas. Usa el selector de arriba para abrir esa parte.',
+      ),
+      journeyText(
+        context,
+        'It needs a few tasks with times and some recorded outcomes before it has much to show. The more you use Axiomara, the more useful it gets.',
+        'Necesita algunas tareas con horario y algunos resultados registrados antes de mostrar mucho. Cuanto más uses Axiomara, más útil es.',
+      ),
+    ]);
+  }
+}
+
+/// "Exploring does not change your plan", plus the option's assumptions.
+class _ResultAssumptions extends StatelessWidget {
+  const _ResultAssumptions({
+    super.key,
+    required this.assumptions,
+    required this.sharedInformationWarnings,
+  });
+
+  final List<String> assumptions;
+  final List<String> sharedInformationWarnings;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<String> visible =
+        _trajectoryAssumptionTexts(
               context,
-              summary.predictionExplanation ?? '',
-            ),
-            style: const TextStyle(
-              color: Color(0xFFD8E2FF),
-              fontSize: 12,
-              height: 1.35,
-            ),
+              assumptions,
+              sharedInformationWarnings,
+            )
+            .map((String value) => value.trim())
+            .where((String value) => value.isNotEmpty)
+            .toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Text(
+          journeyText(
+            context,
+            'Exploring this estimate does not change your saved plan.',
+            'Explorar esta estimación no cambia tu plan guardado.',
           ),
+          style: _secondaryText(context),
+        ),
+        if (sharedInformationWarnings.any(
+          (String warning) => warning.trim().isNotEmpty,
+        )) ...<Widget>[
           const SizedBox(height: 4),
           Text(
-            '${summary.predictionEvidenceSufficient ? journeyText(context, 'Established history', 'Historial consolidado') : journeyText(context, 'Limited history', 'Historial limitado')} • ${summary.predictionModelVersion ?? journeyText(context, 'method unavailable', 'método no disponible')}',
-            style: const TextStyle(color: Color(0xFF93A4D6), fontSize: 11),
+            journeyText(
+              context,
+              'Review the assumptions for limits or missing details in information you shared.',
+              'Revisa los supuestos para conocer los límites o datos que faltan en la información que compartiste.',
+            ),
+            style: _secondaryText(context),
           ),
         ],
-      ),
+        PlainDisclosure(
+          title: journeyText(
+            context,
+            'What this estimate assumes',
+            'Supuestos de esta estimación',
+          ),
+          children: <Widget>[
+            if (visible.isEmpty)
+              Text(
+                journeyText(
+                  context,
+                  'No additional assumptions were listed. Task durations and future free time are estimates.',
+                  'No se indicaron supuestos adicionales. Las duraciones y el tiempo libre futuro son estimaciones.',
+                ),
+                style: _secondaryText(context),
+              )
+            else
+              _bullets(context, visible),
+          ],
+        ),
+      ],
     );
   }
 }
 
-class _HorizonSelector extends StatelessWidget {
-  const _HorizonSelector({
-    required this.selectedDays,
-    required this.onSelected,
-  });
-
-  final int selectedDays;
-  final ValueChanged<int> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      container: true,
-      label: journeyText(
-        context,
-        'Forecast horizon. $selectedDays days selected.',
-        'Horizonte de previsión. $selectedDays días seleccionados.',
-      ),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: <Widget>[
-          for (final int days in const <int>[7, 30, 90])
-            ChoiceChip(
-              label: Text(journeyText(context, '$days DAYS', '$days DÍAS')),
-              selected: selectedDays == days,
-              showCheckmark: false,
-              onSelected: (_) => onSelected(days),
-              labelStyle: TextStyle(
-                color: selectedDays == days
-                    ? AppColors.background
-                    : Colors.white70,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
-              ),
-              backgroundColor: AppColors.bgSecondary.withValues(alpha: .82),
-              selectedColor: AppColors.neonCyan,
-              side: BorderSide(
-                color: AppColors.neonCyan.withValues(alpha: .42),
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              materialTapTargetSize: MaterialTapTargetSize.padded,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-String _conciseOutcomeSummary({
-  required BuildContext context,
-  required TrajectoryBaseline baseline,
-  required TrajectoryScenarioOutcome outcome,
-}) {
-  final int momentumDelta = outcome.projectedMomentum - baseline.momentum;
-  final int pressureDelta = outcome.projectedPressure - baseline.pressure;
-  final String momentumChange = momentumDelta == 0
-      ? 'momentum holding steady'
-      : 'momentum ${momentumDelta > 0 ? 'rising' : 'falling'} by ${momentumDelta.abs()} points';
-  final String pressureChange = pressureDelta == 0
-      ? 'pressure holding steady'
-      : 'pressure ${pressureDelta > 0 ? 'rising' : 'falling'} by ${pressureDelta.abs()} points';
-
-  if (Localizations.localeOf(context).languageCode == 'es') {
-    final String spanishMomentum = momentumDelta == 0
-        ? 'el impulso estable'
-        : 'el impulso ${momentumDelta > 0 ? 'subiendo' : 'bajando'} ${momentumDelta.abs()} puntos';
-    final String spanishPressure = pressureDelta == 0
-        ? 'la presión estable'
-        : 'la presión ${pressureDelta > 0 ? 'subiendo' : 'bajando'} ${pressureDelta.abs()} puntos';
-    return 'Este camino proyecta $spanishMomentum y $spanishPressure. '
-        'El periodo de ${outcome.intervention.horizon.inDays} días solo cambia '
-        'lo amplia que es la incertidumbre. Abre el informe completo para revisar '
-        'la incertidumbre y los datos de apoyo.';
-  }
-  return 'This path projects $momentumChange and $pressureChange. '
-      'The ${outcome.intervention.horizon.inDays}-day range only changes how wide '
-      'the uncertainty is. Open the full report for uncertainty '
-      'and supporting evidence.';
-}
-
-class _ScenarioComparisonCard extends StatelessWidget {
-  const _ScenarioComparisonCard({
-    required this.baseline,
-    required this.outcome,
-    required this.isRecommended,
-    required this.onOpen,
-    required this.onTrack,
-    required this.onCorrect,
-  });
-
-  final TrajectoryBaseline baseline;
-  final TrajectoryScenarioOutcome outcome;
-  final bool isRecommended;
-  final VoidCallback onOpen;
-  final VoidCallback onTrack;
-  final VoidCallback onCorrect;
-
-  @override
-  Widget build(BuildContext context) {
-    return _Panel(
-      title: isRecommended
-          ? journeyText(context, 'Recommended adjustment', 'Ajuste recomendado')
-          : journeyText(context, 'Custom forecast', 'Previsión personalizada'),
-      accent: isRecommended ? AppColors.neonViolet : AppColors.neonCyan,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            _trajectoryGeneratedText(context, outcome.intervention.title),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            _trajectoryGeneratedText(context, outcome.intervention.description),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFFD8E2FF),
-              fontSize: 12,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: <Widget>[
-              _MetricDelta(
-                label: journeyText(context, 'Momentum', 'Impulso'),
-                current: baseline.momentum,
-                projected: outcome.projectedMomentum,
-                uncertainty: outcome.uncertainty,
-              ),
-              _MetricDelta(
-                label: journeyText(context, 'Pressure', 'Presión'),
-                current: baseline.pressure,
-                projected: outcome.projectedPressure,
-                uncertainty: outcome.uncertainty,
-                lowerIsBetter: true,
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            _conciseOutcomeSummary(
-              context: context,
-              baseline: baseline,
-              outcome: outcome,
-            ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFFB8C7E8),
-              fontSize: 12,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _ResultAssumptions(
-            key: ValueKey<String>('trajectory-assumptions-${outcome.id}'),
-            assumptions: outcome.assumptions,
-            sharedInformationWarnings: baseline.personContextWarnings,
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: onOpen,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(AppSizes.touchTarget),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              icon: Icon(
-                outcome.intervention.type ==
-                        TrajectoryInterventionType.applySmartPlanner
-                    ? Icons.auto_awesome_rounded
-                    : Icons.timeline_rounded,
-              ),
-              label: Text(switch (outcome.intervention.type) {
-                TrajectoryInterventionType.applySmartPlanner => journeyText(
-                  context,
-                  'Review adjustment',
-                  'Revisar ajuste',
-                ),
-                TrajectoryInterventionType.maintainCourse => journeyText(
-                  context,
-                  'Review on Schedule',
-                  'Revisar en agenda',
-                ),
-                _ => journeyText(
-                  context,
-                  'Review on Schedule',
-                  'Revisar en agenda',
-                ),
-              }),
-            ),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            key: const Key('trajectory-correct-assumptions'),
-            onPressed: onCorrect,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(AppSizes.touchTarget),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            icon: const Icon(Icons.visibility_off_outlined),
-            label: Text(
-              journeyText(
-                context,
-                'Exclude this forecast from monitoring',
-                'Excluir esta previsión del seguimiento',
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            childrenPadding: const EdgeInsets.only(top: 4),
-            title: Text(
-              journeyText(
-                context,
-                'Full impact and evidence',
-                'Impacto completo y datos',
-              ),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            subtitle: Text(
-              '${_trajectoryConfidenceLabel(context, outcome.confidence.band)} ${journeyText(context, 'confidence', 'de confianza')} · ±${outcome.uncertainty} ${journeyText(context, 'score points', 'puntos de la escala')}',
-              style: const TextStyle(color: Color(0xFF93A4C9), fontSize: 11),
-            ),
-            children: <Widget>[
-              _ScenarioFullDetails(
-                baseline: baseline,
-                outcome: outcome,
-                onOpen: onOpen,
-                onTrack: onTrack,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
+/// Everything else about the selected option, behind "Full impact and
+/// evidence".
 class _ScenarioFullDetails extends StatelessWidget {
-  const _ScenarioFullDetails({
-    required this.baseline,
-    required this.outcome,
-    required this.onOpen,
-    required this.onTrack,
-  });
+  const _ScenarioFullDetails({required this.baseline, required this.outcome});
 
   final TrajectoryBaseline baseline;
   final TrajectoryScenarioOutcome outcome;
-  final VoidCallback onOpen;
-  final VoidCallback onTrack;
 
   @override
   Widget build(BuildContext context) {
     final MaterialLocalizations localizations = MaterialLocalizations.of(
       context,
     );
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            journeyText(
-              context,
-              'FULL IMPACT REPORT',
-              'INFORME DE IMPACTO COMPLETO',
-            ),
-            style: const TextStyle(
-              color: AppColors.neonViolet,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _trajectoryGeneratedText(context, outcome.intervention.title),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _trajectoryGeneratedText(context, outcome.intervention.description),
-            style: const TextStyle(
-              color: Color(0xFFD8E2FF),
-              fontSize: 12,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: <Widget>[
-              _MetricDelta(
-                label: journeyText(context, 'Momentum', 'Impulso'),
-                current: baseline.momentum,
-                projected: outcome.projectedMomentum,
-                uncertainty: outcome.uncertainty,
-              ),
-              _MetricDelta(
-                label: journeyText(context, 'Pressure', 'Presión'),
-                current: baseline.pressure,
-                projected: outcome.projectedPressure,
-                uncertainty: outcome.uncertainty,
-                lowerIsBetter: true,
-              ),
-              _MetricDelta(
-                label: journeyText(
-                  context,
-                  'Accumulated risk',
-                  'Riesgo acumulado',
-                ),
-                current: outcome.risk.currentScore,
-                projected: outcome.risk.projectedScore,
-                uncertainty: outcome.uncertainty,
-                lowerIsBetter: true,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _Section(
-            label: journeyText(
-              context,
-              'WHY THIS CHANGES THE FUTURE',
-              'POR QUÉ CAMBIA EL FUTURO',
-            ),
-            value: _trajectoryGeneratedText(context, outcome.explanation),
-          ),
-          _Section(
-            label: journeyText(
-              context,
-              'SCHEDULE IMPACT',
-              'IMPACTO EN LA AGENDA',
-            ),
-            value: _trajectoryGeneratedText(context, outcome.timeline.summary),
-          ),
-          _Section(
-            label: journeyText(
-              context,
-              'ACTIVITY IMPACT',
-              'IMPACTO EN EL PROGRESO',
-            ),
-            value: _trajectoryGeneratedText(
-              context,
-              outcome.progression.summary,
-            ),
-          ),
-          if (outcome.goals.isNotEmpty) ...<Widget>[
-            const SizedBox(height: 4),
-            Text(
-              journeyText(
-                context,
-                'GOAL DELAY PROJECTIONS',
-                'PROYECCIONES DE RETRASO DE METAS',
-              ),
-              style: const TextStyle(
-                color: Color(0xFF6EE7F9),
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
-              ),
-            ),
-            const SizedBox(height: 6),
-            for (final GoalDelayProjection goal in outcome.goals)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Text(
-                  '${goal.goalTitle}: ${localizations.formatMediumDate(goal.lowerCompletion.toLocal())}–${localizations.formatMediumDate(goal.upperCompletion.toLocal())}; ${_trajectoryGeneratedText(context, goal.explanation)}',
-                  style: const TextStyle(
-                    color: Color(0xFFD8E2FF),
-                    fontSize: 12,
-                    height: 1.35,
-                  ),
-                ),
-              ),
-          ],
-          const SizedBox(height: 4),
-          Text(
-            journeyText(context, 'RISK CONTRIBUTORS', 'FACTORES DE RIESGO'),
-            style: const TextStyle(
-              color: Color(0xFF6EE7F9),
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
-            ),
-          ),
-          const SizedBox(height: 6),
-          for (final TrajectoryRiskContribution risk
-              in outcome.risk.contributions)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                '${_trajectoryGeneratedText(context, risk.label)}: ${risk.isScored ? '${risk.currentScore}/100 → ${risk.projectedScore}/100' : journeyText(context, 'not scored', 'sin calcular')}. ${_trajectoryGeneratedText(context, risk.explanation)}',
-                style: const TextStyle(
-                  color: Color(0xFFB8C7FF),
-                  fontSize: 11,
-                  height: 1.35,
-                ),
-              ),
-            ),
-          const SizedBox(height: 8),
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            childrenPadding: EdgeInsets.zero,
-            title: Text(
-              journeyText(
-                context,
-                'Evidence and assumptions',
-                'Evidencia y supuestos',
-              ),
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-            ),
-            subtitle: Text(
-              '${_trajectoryConfidenceLabel(context, outcome.confidence.band)} ${journeyText(context, 'confidence', 'de confianza')} • ±${outcome.uncertainty} ${journeyText(context, 'score points', 'puntos de la escala')}',
-              style: const TextStyle(color: Color(0xFF93A4D6), fontSize: 11),
-            ),
-            children: <Widget>[
-              _EvidenceList(
-                title: journeyText(context, 'Evidence', 'Evidencia'),
-                values: [
-                  journeyText(
-                    context,
-                    '${baseline.observationCount} recorded outcomes in the last ${baseline.evidenceWindow.inDays} days.',
-                    '${baseline.observationCount} resultados registrados en los últimos ${baseline.evidenceWindow.inDays} días.',
-                  ),
-                  journeyText(
-                    context,
-                    '${baseline.completedInWindow} completed and ${baseline.deferredInWindow} deferred outcomes.',
-                    '${baseline.completedInWindow} resultados completados y ${baseline.deferredInWindow} aplazados.',
-                  ),
-                  journeyText(
-                    context,
-                    baseline.hasObservedAvailability
-                        ? '${baseline.availableMinutes} minutes of configured working time.'
-                        : 'Working availability has not been provided.',
-                    baseline.hasObservedAvailability
-                        ? '${baseline.availableMinutes} minutos de tiempo de trabajo configurado.'
-                        : 'No se ha indicado la disponibilidad de trabajo.',
-                  ),
-                ],
-              ),
-              _EvidenceList(
-                title: journeyText(context, 'Assumptions', 'Supuestos'),
-                values: _trajectoryAssumptionTexts(
-                  context,
-                  outcome.assumptions,
-                  baseline.personContextWarnings,
-                ),
-              ),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  '${journeyText(context, 'Generated', 'Generado')} ${localizations.formatMediumDate(outcome.generatedAt.toLocal())}',
-                  style: const TextStyle(
-                    color: Color(0xFF7F91C8),
-                    fontSize: 10,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Semantics(
-            container: true,
-            label: journeyText(
-              context,
-              'Simulation only. Opening a feature does not apply or award the projected outcome.',
-              'Solo simulación. Abrir una función no aplica ni concede el resultado proyectado.',
-            ),
-            child: Text(
-              journeyText(
-                context,
-                'SIMULATION ONLY — no task, Schedule block, goal, or Activity reward is changed here.',
-                'SOLO SIMULACIÓN — aquí no cambia ninguna tarea, bloque, meta ni recompensa.',
-              ),
-              style: const TextStyle(
-                color: Color(0xFFFFC857),
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          FilledButton.icon(
-            onPressed: onOpen,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(AppSizes.touchTarget),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            icon: Icon(
-              outcome.intervention.type ==
-                      TrajectoryInterventionType.applySmartPlanner
-                  ? Icons.auto_awesome_rounded
-                  : Icons.timeline_rounded,
-            ),
-            label: Text(
-              outcome.intervention.type ==
-                      TrajectoryInterventionType.applySmartPlanner
-                  ? journeyText(
-                      context,
-                      'Review in Choose a step',
-                      'Revisar en Elegir un paso',
-                    )
-                  : journeyText(
-                      context,
-                      'Review affected work on Schedule',
-                      'Revisar trabajo afectado en agenda',
-                    ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: onTrack,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(AppSizes.touchTarget),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            icon: const Icon(Icons.query_stats_rounded),
-            label: Text(
-              journeyText(
-                context,
-                'Track this path for monitoring',
-                'Supervisar esta trayectoria',
-              ),
-            ),
-          ),
-        ],
-      ),
+    final _Band risk = _Band.of(
+      outcome.risk.projectedScore,
+      outcome.uncertainty,
     );
-  }
-}
-
-class _MetricDelta extends StatelessWidget {
-  const _MetricDelta({
-    required this.label,
-    required this.current,
-    required this.projected,
-    required this.uncertainty,
-    this.lowerIsBetter = false,
-  });
-
-  final String label;
-  final int current;
-  final int projected;
-  final int uncertainty;
-  final bool lowerIsBetter;
-
-  @override
-  Widget build(BuildContext context) {
-    final int delta = projected - current;
-    final bool favorable = lowerIsBetter ? delta <= 0 : delta >= 0;
-    final int low = (projected - uncertainty).clamp(0, 100);
-    final int high = (projected + uncertainty).clamp(0, 100);
-    return Container(
-      constraints: const BoxConstraints(minWidth: 145),
-      padding: const EdgeInsets.all(9),
-      decoration: BoxDecoration(
-        color: const Color(0xFF10182A),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF24345B)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            label.toUpperCase(),
-            style: const TextStyle(
-              color: Color(0xFF93A4D6),
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Text(
+          '${journeyText(context, 'Confidence', 'Confianza')}: ${_trajectoryConfidenceLabel(context, outcome.confidence.band)} · ±${outcome.uncertainty} ${journeyText(context, 'points', 'puntos')}',
+          style: _secondaryText(context),
+        ),
+        PlainMetricRow(
+          label: journeyText(context, 'Risk building up', 'Riesgo acumulado'),
+          value: journeyText(
+            context,
+            'about ${risk.mid} of 100',
+            'alrededor de ${risk.mid} de 100',
           ),
-          const SizedBox(height: 4),
-          Text(
-            uncertainty == 0
-                ? '$current/100 → $projected/100'
-                : '$current/100 → $low–$high/100',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-            ),
+          caption: journeyText(
+            context,
+            'Range ${risk.low}–${risk.high}. Now: ${outcome.risk.currentScore}.',
+            'Rango ${risk.low}–${risk.high}. Ahora: ${outcome.risk.currentScore}.',
           ),
-          Text(
-            Localizations.localeOf(context).languageCode == 'es'
-                ? '${delta >= 0 ? '+' : ''}$delta puntos'
-                : '${delta >= 0 ? '+' : ''}$delta points',
-            style: TextStyle(
-              color: favorable
-                  ? const Color(0xFF6EE7F9)
-                  : const Color(0xFFFFC857),
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BaselineMetric extends StatelessWidget {
-  const _BaselineMetric({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 112, minHeight: 56),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.bgSecondary.withValues(alpha: .7),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: .18)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          Text(
-            label.toUpperCase(),
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Section extends StatelessWidget {
-  const _Section({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF6EE7F9),
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Color(0xFFD8E2FF),
-              fontSize: 12,
-              height: 1.35,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EvidenceList extends StatelessWidget {
-  const _EvidenceList({required this.title, required this.values});
-
-  final String title;
-  final List<String> values;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(
-          '$title:\n${values.map((String value) => '• $value').join('\n')}',
-          style: const TextStyle(
-            color: Color(0xFFB8C7FF),
-            fontSize: 11,
-            height: 1.4,
+          provenance: ProvenanceKind.estimate,
+        ),
+        _cardHeading(
+          context,
+          journeyText(
+            context,
+            'Why this changes the estimate',
+            'Por qué cambia la estimación',
           ),
         ),
-      ),
+        Text(
+          _trajectoryGeneratedText(context, outcome.explanation),
+          style: _secondaryText(context),
+        ),
+        _cardHeading(
+          context,
+          journeyText(
+            context,
+            'Effect on your Schedule',
+            'Efecto en tu agenda',
+          ),
+        ),
+        Text(
+          _trajectoryGeneratedText(context, outcome.timeline.summary),
+          style: _secondaryText(context),
+        ),
+        _cardHeading(
+          context,
+          journeyText(context, 'Effect on progress', 'Efecto en el progreso'),
+        ),
+        Text(
+          _trajectoryGeneratedText(context, outcome.progression.summary),
+          style: _secondaryText(context),
+        ),
+        _cardHeading(
+          context,
+          journeyText(
+            context,
+            'What adds to the risk',
+            'Qué aumenta el riesgo',
+          ),
+        ),
+        _bullets(context, <String>[
+          for (final TrajectoryRiskContribution item
+              in outcome.risk.contributions)
+            item.isScored
+                ? journeyText(
+                    context,
+                    '${_trajectoryGeneratedText(context, item.label)}: ${item.currentScore} of 100 now, ${item.projectedScore} of 100 with this option. ${_trajectoryGeneratedText(context, item.explanation)}',
+                    '${_trajectoryGeneratedText(context, item.label)}: ${item.currentScore} de 100 ahora, ${item.projectedScore} de 100 con esta opción. ${_trajectoryGeneratedText(context, item.explanation)}',
+                  )
+                : journeyText(
+                    context,
+                    '${_trajectoryGeneratedText(context, item.label)}: not shown until your working hours are set.',
+                    '${_trajectoryGeneratedText(context, item.label)}: no se muestra hasta que configures tu horario de trabajo.',
+                  ),
+        ]),
+        const ProvenanceLabel(ProvenanceKind.estimate),
+        _cardHeading(
+          context,
+          journeyText(
+            context,
+            'What this option is based on',
+            'En qué se basa esta opción',
+          ),
+        ),
+        _bullets(context, <String>[
+          journeyText(
+            context,
+            '${baseline.observationCount} recorded outcomes in the last ${baseline.evidenceWindow.inDays} days.',
+            '${baseline.observationCount} resultados registrados en los últimos ${baseline.evidenceWindow.inDays} días.',
+          ),
+          journeyText(
+            context,
+            '${baseline.completedInWindow} completed and ${baseline.deferredInWindow} deferred outcomes.',
+            '${baseline.completedInWindow} resultados completados y ${baseline.deferredInWindow} aplazados.',
+          ),
+          journeyText(
+            context,
+            baseline.hasObservedAvailability
+                ? '${baseline.availableMinutes} minutes of configured working time.'
+                : 'Working availability has not been provided.',
+            baseline.hasObservedAvailability
+                ? '${baseline.availableMinutes} minutos de tiempo de trabajo configurado.'
+                : 'No se ha indicado la disponibilidad de trabajo.',
+          ),
+        ]),
+        Text(
+          '${journeyText(context, 'Generated', 'Generado')} ${localizations.formatMediumDate(outcome.generatedAt.toLocal())}',
+          style: _secondaryText(context),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          journeyText(
+            context,
+            'Simulation only: no task, Schedule block, goal or progress reward is changed here.',
+            'Solo simulación: aquí no cambia ninguna tarea, bloque, meta ni recompensa.',
+          ),
+          style: _secondaryText(context),
+        ),
+      ],
     );
   }
 }
 
-class _Panel extends StatelessWidget {
-  const _Panel({
-    required this.title,
-    required this.child,
-    this.accent = AppColors.neonCyan,
+class _CustomScenarioComposer extends StatefulWidget {
+  const _CustomScenarioComposer({
+    required this.baseline,
+    required this.horizonDays,
+    required this.onComposed,
+    required this.onClear,
+    required this.onDraftChanged,
+    this.feedback,
   });
 
-  final String title;
-  final Widget child;
-  final Color accent;
+  final Widget? feedback;
+  final TrajectoryBaseline baseline;
+  final int horizonDays;
+  final ValueChanged<TrajectoryCustomScenarioDraft> onComposed;
+  final VoidCallback onClear;
+  final VoidCallback onDraftChanged;
+
+  @override
+  State<_CustomScenarioComposer> createState() =>
+      _CustomScenarioComposerState();
+}
+
+class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
+  String? _subjectId;
+  TrajectoryCustomAdjustment _adjustment = TrajectoryCustomAdjustment.complete;
+  double _delayDays = 1;
+  bool _draftChanged = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _subjectId = widget.baseline.tasks.firstOrNull?.id;
+  }
+
+  @override
+  void didUpdateWidget(covariant _CustomScenarioComposer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.baseline.tasks.any(
+      (TrajectoryTaskNode task) => task.id == _subjectId,
+    )) {
+      final nextSubjectId = widget.baseline.tasks.firstOrNull?.id;
+      if (nextSubjectId != _subjectId) {
+        _subjectId = nextSubjectId;
+        _draftChanged = true;
+        widget.onDraftChanged();
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return TemporalGlassSurface(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      accent: accent,
-      opacity: .9,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            title.toUpperCase(),
-            style: TextStyle(
-              color: accent,
-              fontSize: 10,
-              letterSpacing: 0,
-              fontWeight: FontWeight.w800,
+    if (widget.baseline.tasks.isEmpty) return const SizedBox.shrink();
+    final bool showsDelay = _adjustment == TrajectoryCustomAdjustment.delay;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          journeyText(
+            context,
+            'Choose one change. Axiomara compares its effect on workload, risk, goal dates, Schedule and progress without changing your real plan.',
+            'Elige un cambio concreto. Axiomara compara su efecto en la carga, el riesgo, las fechas de las metas, la agenda y el progreso sin cambiar tu plan real.',
+          ),
+          style: _secondaryText(context),
+        ),
+        const SizedBox(height: 12),
+        DropdownRouteKeyboardGuard(
+          child: DropdownButtonFormField<String>(
+            initialValue: _subjectId,
+            isExpanded: true,
+            decoration: InputDecoration(
+              labelText: journeyText(
+                context,
+                'Commitment to change',
+                'Compromiso que quieres cambiar',
+              ),
+            ),
+            items: widget.baseline.tasks
+                .map(
+                  (TrajectoryTaskNode task) => DropdownMenuItem<String>(
+                    value: task.id,
+                    child: Text(task.title, overflow: TextOverflow.ellipsis),
+                  ),
+                )
+                .toList(growable: false),
+            onChanged: (String? value) {
+              if (value == _subjectId) return;
+              widget.onDraftChanged();
+              setState(() {
+                _subjectId = value;
+                _draftChanged = true;
+              });
+            },
+          ),
+        ),
+        const SizedBox(height: 10),
+        SegmentedButton<TrajectoryCustomAdjustment>(
+          segments: <ButtonSegment<TrajectoryCustomAdjustment>>[
+            ButtonSegment<TrajectoryCustomAdjustment>(
+              value: TrajectoryCustomAdjustment.complete,
+              label: Text(journeyText(context, 'Complete', 'Completar')),
+              icon: const Icon(Icons.check_rounded),
+            ),
+            ButtonSegment<TrajectoryCustomAdjustment>(
+              value: TrajectoryCustomAdjustment.delay,
+              label: Text(journeyText(context, 'Delay', 'Aplazar')),
+              icon: const Icon(Icons.schedule_rounded),
+            ),
+            ButtonSegment<TrajectoryCustomAdjustment>(
+              value: TrajectoryCustomAdjustment.reduceScope,
+              label: Text(journeyText(context, 'Remove', 'Quitar')),
+              icon: const Icon(Icons.remove_circle_outline_rounded),
+            ),
+          ],
+          selected: <TrajectoryCustomAdjustment>{_adjustment},
+          showSelectedIcon: false,
+          style: ButtonStyle(
+            foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+              final colors = Theme.of(context).colorScheme;
+              return states.contains(WidgetState.selected)
+                  ? colors.onPrimary
+                  : colors.onSurface;
+            }),
+            backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+              final colors = Theme.of(context).colorScheme;
+              return states.contains(WidgetState.selected)
+                  ? colors.primary
+                  : colors.surface;
+            }),
+            minimumSize: const WidgetStatePropertyAll<Size>(
+              Size(0, AppSizes.touchTarget),
+            ),
+            textStyle: const WidgetStatePropertyAll<TextStyle>(
+              TextStyle(letterSpacing: 0),
             ),
           ),
-          const SizedBox(height: 8),
-          child,
+          onSelectionChanged: (Set<TrajectoryCustomAdjustment> selected) {
+            if (selected.first == _adjustment) return;
+            widget.onDraftChanged();
+            setState(() {
+              _adjustment = selected.first;
+              _draftChanged = true;
+            });
+          },
+        ),
+        if (showsDelay) ...<Widget>[
+          const SizedBox(height: 10),
+          Text(
+            Localizations.localeOf(context).languageCode == 'es'
+                ? 'Aplazar: ${_delayDays.round()} ${_delayDays.round() == 1 ? 'día' : 'días'}'
+                : 'Put off by: ${_delayDays.round()} day${_delayDays.round() == 1 ? '' : 's'}',
+            style: _secondaryText(context),
+          ),
+          Slider(
+            value: _delayDays,
+            min: 1,
+            max: 14,
+            divisions: 13,
+            label: Localizations.localeOf(context).languageCode == 'es'
+                ? '${_delayDays.round()} días'
+                : '${_delayDays.round()} days',
+            onChanged: (double value) {
+              if (value == _delayDays) return;
+              widget.onDraftChanged();
+              setState(() {
+                _delayDays = value;
+                _draftChanged = true;
+              });
+            },
+          ),
         ],
-      ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: <Widget>[
+            FilledButton.icon(
+              onPressed: _subjectId == null
+                  ? null
+                  : () {
+                      setState(() => _draftChanged = false);
+                      widget.onComposed(
+                        TrajectoryCustomScenarioDraft(
+                          subjectId: _subjectId!,
+                          adjustment: _adjustment,
+                          delayDays: _delayDays.round(),
+                        ),
+                      );
+                    },
+              icon: const Icon(Icons.alt_route_rounded),
+              label: Text(
+                journeyText(
+                  context,
+                  'Compare over ${widget.horizonDays} days',
+                  'Comparar en ${widget.horizonDays} días',
+                ),
+              ),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(0, AppSizes.touchTarget),
+              ),
+            ),
+            TextButton(
+              onPressed: widget.onClear,
+              style: TextButton.styleFrom(
+                minimumSize: const Size(0, AppSizes.touchTarget),
+              ),
+              child: Text(
+                journeyText(
+                  context,
+                  'Clear my scenario',
+                  'Borrar mi escenario',
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (!_draftChanged && widget.feedback != null) ...[
+          const SizedBox(height: 10),
+          widget.feedback!,
+        ],
+      ],
     );
   }
 }
 
-String _trajectoryGeneratedText(BuildContext context, String value) {
-  final String? plain = switch (value) {
-    'Person context was unavailable at scenario construction, so no personal context was inferred.' =>
-      journeyText(
-        context,
-        'Shared personal information was unavailable, so none was inferred for this estimate.',
-        'La información personal compartida no estaba disponible, por lo que no se dedujo para esta estimación.',
-      ),
-    'The no-context capacity and unscheduled values remain available for comparison.' =>
-      journeyText(
-        context,
-        'Capacity and unscheduled-work estimates without shared personal information remain available for comparison.',
-        'Las estimaciones de capacidad y trabajo sin programar calculadas sin información personal compartida siguen disponibles para comparar.',
-      ),
-    'Energy is a seeded planning estimate, not a user observation.' =>
-      journeyText(
-        context,
-        'Energy is a starting estimate, not something you recorded.',
-        'La energía es una estimación inicial, no un dato que hayas registrado.',
-      ),
-    'Only the declared intervention changes; unmodeled life events remain outside this scenario.' =>
-      journeyText(
-        context,
-        'This estimate changes only the option you chose, not other events in your life.',
-        'Esta estimación cambia solo la opción elegida, no otros sucesos de tu vida.',
-      ),
-    'Person context was available but contained no fresh consented Insights operational signals.' =>
-      journeyText(
-        context,
-        'Shared personal information had no recent details this estimate could use.',
-        'La información personal compartida no tenía datos recientes utilizables para esta estimación.',
-      ),
-    _ => null,
-  };
-  if (plain != null) return plain;
-  value = value.replaceAll(
-    RegExp(r' against baseline \S+\. '),
-    journeyText(
-      context,
-      ' compared with your saved plan. ',
-      ' en comparación con tu plan guardado. ',
+enum _CustomComparisonState { pending, ready, unavailable }
+
+class _CustomComparisonRequest {
+  const _CustomComparisonRequest({
+    required this.draft,
+    required this.scenarioId,
+    required this.previous,
+    required this.context,
+  });
+  final TrajectoryCustomScenarioDraft draft;
+  final String scenarioId;
+  final TrajectoryComparison? previous;
+  final (String?, int, int) context;
+}
+
+class _CustomComparisonFeedback extends StatelessWidget {
+  const _CustomComparisonFeedback({
+    super.key,
+    required this.state,
+    this.onView,
+  });
+  final _CustomComparisonState state;
+  final VoidCallback? onView;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(switch (state) {
+          _CustomComparisonState.pending => journeyText(
+            context,
+            'Updating your comparison…',
+            'Actualizando tu comparación…',
+          ),
+          _CustomComparisonState.ready => journeyText(
+            context,
+            'Your comparison is ready. Preview only; no changes saved.',
+            'Tu comparación está lista. Solo es una vista previa; no se guardaron cambios.',
+          ),
+          _CustomComparisonState.unavailable => journeyText(
+            context,
+            'This change could not be compared with the current information. Try another task or change.',
+            'No se pudo comparar este cambio con la información actual. Prueba otra tarea u otro cambio.',
+          ),
+        }),
+        if (state == _CustomComparisonState.ready && onView != null)
+          TextButton.icon(
+            onPressed: onView,
+            icon: const Icon(Icons.visibility_outlined),
+            label: Text(
+              journeyText(context, 'View comparison', 'Ver comparación'),
+            ),
+          ),
+      ],
     ),
   );
-  if (Localizations.localeOf(context).languageCode != 'es') return value;
-  const exact = <String, String>{
-    'Pressure load': 'Carga de presión',
-    'Deferral accumulation': 'Acumulación de aplazamientos',
-    'Deadline pressure': 'Presión de fechas límite',
-    'Capacity overload': 'Sobrecarga de capacidad',
-    'Sustained pressure raises rollover and recovery risk.':
-        'La presión sostenida aumenta el riesgo de arrastre y recuperación.',
-    'Repeated deferrals compound uncertainty in future capacity.':
-        'Los aplazamientos repetidos aumentan la incertidumbre sobre la capacidad futura.',
-    'Crossed deadlines reduce slack and can displace other work.':
-        'Las fechas límite incumplidas reducen el margen y pueden desplazar otro trabajo.',
-    'Unscheduled work indicates that current commitments do not fit.':
-        'El trabajo sin programar indica que los compromisos actuales no caben.',
-    'Capacity risk is not scored until working availability is configured.':
-        'El riesgo de capacidad no se calcula hasta configurar la disponibilidad.',
-    'Energy is a seeded planning estimate, not a user observation.':
-        'La energía es una estimación inicial, no una observación de la persona.',
-    'No observed availability is configured. Capacity-based risk and goal completion dates are withheld.':
-        'No hay disponibilidad observada. Se omiten el riesgo de capacidad y las fechas de finalización.',
-    'Only the declared intervention changes; unmodeled life events remain outside this scenario.':
-        'Solo cambia la intervención declarada; los sucesos no modelados quedan fuera del escenario.',
-    'Model this commitment as completed, then compare capacity, risk, goal timing, and Activity consequences.':
-        'Modelar este compromiso como completado y comparar sus consecuencias en capacidad, riesgo, fechas de metas y actividad.',
-    'Projected XP is informational and is never awarded by this simulation.':
-        'Los XP proyectados son informativos y esta simulación nunca los concede.',
-    'No Activity reward is projected from this intervention alone.':
-        'Esta intervención por sí sola no proyecta una recompensa de progreso.',
-    'Keep the suggested plan': 'Proteger el camino de Elegir un paso',
-    'Protect the highest-value feasible block.':
-        'Proteger el bloque viable de mayor valor.',
-    'The protected block is attempted.':
-        'Se intenta completar el bloque protegido.',
-    'Delay the milestone': 'Aplazar el hito',
-    'Maintain current course': 'Mantener el rumbo actual',
-    'Use the suggested option in this estimate':
-        'Aplicar la recomendación de Elegir un paso',
-    'Apply Choose a step recommendation':
-        'Aplicar la recomendación de Elegir un paso',
-    'Model the selected Choose a step task as completed in its feasible block.':
-        'Modelar la tarea seleccionada de Elegir un paso como completada en su bloque viable.',
-    'Reduce lower-priority scope': 'Reducir el alcance de menor prioridad',
-    'Preserve the current plan without a declared intervention.':
-        'Conservar el plan actual sin una intervención declarada.',
-    'Current completion and deferral rates remain directionally similar.':
-        'Las tasas actuales de finalización y aplazamiento mantienen una tendencia similar.',
-    'The proposed TimeBlocks are accepted and attempted.':
-        'Los bloques de tiempo propuestos se aceptan y se intentan.',
-    'Displaced work is explicitly reconciled instead of silently carried.':
-        'El trabajo desplazado se concilia de forma explícita en lugar de arrastrarse en silencio.',
-    'The task is completed without creating an unmodeled commitment.':
-        'La tarea se completa sin crear un compromiso no modelado.',
-    'The delayed work remains active and consumes later capacity.':
-        'El trabajo aplazado sigue activo y consume capacidad posterior.',
-    'The first verifiable recovery checkpoint is completed.':
-        'Se completa el primer punto de recuperación verificable.',
-    'The removed commitment is optional or safely deferred with consent.':
-        'El compromiso eliminado es opcional o puede aplazarse de forma segura con consentimiento.',
-    'The commitment is completed without creating an unmodeled obligation.':
-        'El compromiso se completa sin crear una obligación no modelada.',
-    'Projected Activity effects remain informational until an outcome is recorded on Schedule.':
-        'Los efectos proyectados en la actividad son informativos hasta registrar un resultado en la agenda.',
-    'The delayed commitment remains active and consumes later capacity.':
-        'El compromiso aplazado sigue activo y consume capacidad posterior.',
-    'No replacement work is assumed unless it already exists in the baseline.':
-        'No se supone trabajo de reemplazo salvo que ya exista en la línea base.',
-    'The commitment is optional or can be deferred with informed consent.':
-        'El compromiso es opcional o puede aplazarse con consentimiento informado.',
-    'The simulation does not delete or mutate the actual task.':
-        'La simulación no elimina ni modifica la tarea real.',
-    'Remove this commitment from the active capacity window and compare the resulting tradeoff.':
-        'Quitar este compromiso de la ventana de capacidad activa y comparar la compensación resultante.',
-  };
-  final translated = exact[value];
-  if (translated != null) return translated;
-  if (value.startsWith('Complete ')) {
-    return 'Completar ${value.substring('Complete '.length)}';
-  }
-  if (value.startsWith('Delay ') && value.endsWith(' by one day')) {
-    return 'Aplazar ${value.substring('Delay '.length, value.length - ' by one day'.length)} un día';
-  }
-  if (value.startsWith('Recover ')) {
-    return 'Recuperar ${value.substring('Recover '.length)}';
-  }
-  if (value.startsWith('Protect ') &&
-      value.endsWith(' and use the feasible plan as the active schedule.')) {
-    final String subject = value.substring(
-      'Protect '.length,
-      value.length -
-          ' and use the feasible plan as the active schedule.'.length,
-    );
-    return 'Proteger $subject y usar el plan viable como horario activo.';
-  }
-  if (value.startsWith(
-    'Estimate what happens if you finish the selected task',
-  )) {
-    return 'Modelar la tarea seleccionada de Elegir un paso como completada en su bloque viable.';
-  }
-  if (value.startsWith('Model one day of slippage')) {
-    return 'Modelar un día de retraso y sus consecuencias en la agenda y las metas.';
-  }
-  if (value.startsWith(
-    'Apply the task-specific deadline/capacity recovery recommendation.',
-  )) {
-    return 'Aplicar la recomendación específica de recuperación de fecha límite y capacidad.';
-  }
-  if (value.startsWith('Remove ') &&
-      value.endsWith(' from the active capacity window.')) {
-    final String subject = value.substring(
-      'Remove '.length,
-      value.length - ' from the active capacity window.'.length,
-    );
-    return 'Quitar $subject de la ventana de capacidad activa.';
-  }
-  if (value.startsWith('My scenario: complete ')) {
-    return 'Mi escenario: completar ${value.substring('My scenario: complete '.length)}';
-  }
-  if (value.startsWith('My scenario: remove ')) {
-    return 'Mi escenario: quitar ${value.substring('My scenario: remove '.length)}';
-  }
-  final RegExpMatch? delay = RegExp(
-    r'^My scenario: delay (.+) (\d+) days?$',
-  ).firstMatch(value);
-  if (delay != null) {
-    final String days = delay.group(2)!;
-    return 'Mi escenario: aplazar ${delay.group(1)!} $days ${days == '1' ? 'día' : 'días'}';
-  }
-  return value
-      .replaceAll(
-        'scheduled block(s) are estimated',
-        'bloque(s) de Elegir un paso se proyectan',
-      )
-      .replaceAll(
-        'commitment(s) remain displaced',
-        'compromiso(s) permanecen desplazados',
-      )
-      .replaceAll(
-        'existing block(s) are affected',
-        'bloque(s) existentes se ven afectados',
-      )
-      .replaceAll(
-        'deadline crossing(s) are projected',
-        'cruce(s) de fecha límite se proyectan',
-      )
-      .replaceAll(
-        'linked block(s) can close after the simulated completion',
-        'bloque(s) vinculados pueden cerrarse tras completar la simulación',
-      )
-      .replaceAll(
-        'linked block(s) can be removed from active load',
-        'bloque(s) vinculados pueden salir de la carga activa',
-      )
-      .replaceAll(
-        'linked Schedule block(s) are affected',
-        'bloque(s) vinculados de la agenda se ven afectados',
-      )
-      .replaceAll(
-        'remaining linked minutes; no target date is recorded',
-        'minutos vinculados restantes; no hay fecha objetivo',
-      )
-      .replaceAll(
-        'Projected completion crosses the target by about',
-        'La finalización proyectada supera el objetivo por unos',
-      )
-      .replaceAll('day(s)', 'día(s)')
-      .replaceAll(
-        'Projected completion remains inside the recorded target date.',
-        'La finalización proyectada queda dentro de la fecha objetivo registrada.',
-      )
-      .replaceAll('Projected risk is', 'El riesgo proyectado es')
-      .replaceAll('against baseline', 'frente a la línea base')
-      .replaceAll('changes', 'cambia');
-}
-
-String _trajectoryConfidenceLabel(
-  BuildContext context,
-  PredictiveConfidenceBand band,
-) {
-  final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
-  return switch (band) {
-    PredictiveConfidenceBand.high => isSpanish ? 'alta' : 'high',
-    PredictiveConfidenceBand.moderate => isSpanish ? 'moderada' : 'moderate',
-    PredictiveConfidenceBand.low => isSpanish ? 'baja' : 'low',
-    PredictiveConfidenceBand.insufficientEvidence =>
-      isSpanish ? 'insuficiente' : 'insufficient',
-  };
 }

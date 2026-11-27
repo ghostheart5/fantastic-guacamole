@@ -10,44 +10,110 @@ final DateTime trajectoryFixtureNow = DateTime.utc(2026, 8, 16, 15);
 TrajectoryBaseline trajectoryTestBaseline({
   String accountScope = 'v2.test-account',
   int momentum = 61,
-  int pressure = 58,
+  int? pressure,
   int observationCount = 12,
   PredictiveEvidenceOrigin energyOrigin = PredictiveEvidenceOrigin.observed,
   PredictiveEvidenceOrigin availabilityOrigin =
       PredictiveEvidenceOrigin.observed,
   List<String> personContextWarnings = const <String>[],
+  List<String> assumptions = const <String>[],
+  List<TrajectoryTaskNode>? tasks,
+  int? dailyFreeMinutes,
+  int completedInWindow = 6,
+  int horizonDays = 7,
+  int? pressureInHorizon,
+  DateTime? observedAt,
+}) {
+  final List<TrajectoryTaskNode> resolvedTasks = tasks ?? _fixtureTasks();
+  final int free = dailyFreeMinutes ?? 120;
+  // The v4 workloads the provider and engine compute for the same tasks:
+  // the next 7 days (pressure, what Home shows) and the chosen range.
+  int load(int days) => FutureConsequenceEngine.capacityLoad(
+    requiredMinutes: FutureConsequenceEngine.horizonWorkload(
+      tasks: resolvedTasks,
+      now: trajectoryFixtureNow,
+      horizonDays: days,
+      completedLast7Days: completedInWindow,
+    ).requiredMinutes,
+    dailyFreeMinutes: free,
+    days: days,
+  );
+  final int nextSevenDays = pressure ?? load(7);
+  return _fixtureBaseline(
+    accountScope: accountScope,
+    momentum: momentum,
+    pressure: nextSevenDays,
+    observationCount: observationCount,
+    energyOrigin: energyOrigin,
+    availabilityOrigin: availabilityOrigin,
+    personContextWarnings: personContextWarnings,
+    assumptions: assumptions,
+    tasks: resolvedTasks,
+    dailyFreeMinutes: free,
+    completedInWindow: completedInWindow,
+    horizonDays: horizonDays,
+    observedAt: observedAt ?? trajectoryFixtureNow,
+    // A 7-day range is the next 7 days, so an explicit pressure override is
+    // also the range workload; other ranges can be set explicitly.
+    pressureInHorizon:
+        pressureInHorizon ??
+        (horizonDays == 7 ? nextSevenDays : load(horizonDays)),
+  );
+}
+
+List<TrajectoryTaskNode> _fixtureTasks() => <TrajectoryTaskNode>[
+  TrajectoryTaskNode(
+    id: 'task-launch',
+    title: 'Ship protected milestone',
+    priority: 5,
+    estimatedMinutes: 90,
+    goalId: 'goal-release',
+    dueAt: trajectoryFixtureNow.add(const Duration(days: 2)),
+    scheduledAt: trajectoryFixtureNow.add(const Duration(days: 1)),
+  ),
+  const TrajectoryTaskNode(
+    id: 'task-polish',
+    title: 'Polish optional copy',
+    priority: 1,
+    estimatedMinutes: 60,
+    goalId: 'goal-release',
+  ),
+];
+
+TrajectoryBaseline _fixtureBaseline({
+  required String accountScope,
+  required int momentum,
+  required int pressure,
+  required int observationCount,
+  required PredictiveEvidenceOrigin energyOrigin,
+  required PredictiveEvidenceOrigin availabilityOrigin,
+  required List<String> personContextWarnings,
+  required List<String> assumptions,
+  required List<TrajectoryTaskNode> tasks,
+  required int dailyFreeMinutes,
+  required int completedInWindow,
+  required int horizonDays,
+  required int pressureInHorizon,
+  required DateTime observedAt,
 }) => TrajectoryBaseline(
   accountScope: accountScope,
   revision: 'trajectory-fixture-r1',
-  observedAt: trajectoryFixtureNow,
+  observedAt: observedAt,
   evidenceWindow: const Duration(days: 7),
   momentum: momentum,
   pressure: pressure,
   energy: 64,
-  completedInWindow: 6,
+  completedInWindow: completedInWindow,
   deferredInWindow: 3,
   observationCount: observationCount,
   availableMinutes: 420,
   occupiedMinutes: 300,
   unscheduledMinutes: 90,
-  tasks: <TrajectoryTaskNode>[
-    TrajectoryTaskNode(
-      id: 'task-launch',
-      title: 'Ship protected milestone',
-      priority: 5,
-      estimatedMinutes: 90,
-      goalId: 'goal-release',
-      dueAt: trajectoryFixtureNow.add(const Duration(days: 2)),
-      scheduledAt: trajectoryFixtureNow.add(const Duration(days: 1)),
-    ),
-    const TrajectoryTaskNode(
-      id: 'task-polish',
-      title: 'Polish optional copy',
-      priority: 1,
-      estimatedMinutes: 60,
-      goalId: 'goal-release',
-    ),
-  ],
+  dailyFreeMinutes: dailyFreeMinutes,
+  assumptions: assumptions,
+  horizonDays: horizonDays,
+  pressureInHorizon: pressureInHorizon,
+  tasks: tasks,
   goals: <TrajectoryGoalNode>[
     TrajectoryGoalNode(
       id: 'goal-release',

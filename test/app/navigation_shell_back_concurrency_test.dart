@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../helpers/insights_test_overrides.dart';
 
 /// Exercises the app's single [PopScope] (in [NavigationShell]) under a rapid
 /// double back-press while its own navigation-map bottom sheet is open — the
@@ -59,6 +60,8 @@ void main() {
         // GoalsNotifier.build schedules a timer that outlives the test frame,
         // and routing to goals mounts it.
         goalsProvider.overrideWith(_StaticGoals.new),
+        // Routing to Insights mounts Future outcomes and its habit lines.
+        ...insightsDayRolloverOverrides(),
       ],
     );
     addTearDown(container.dispose);

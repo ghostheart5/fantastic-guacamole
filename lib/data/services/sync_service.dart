@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/data/services/backup_service.dart';
 import 'package:fantastic_guacamole/data/services/backup_cipher.dart';
 import 'package:fantastic_guacamole/data/services/cloud_backup_status_store.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 enum CloudBackupReadStatus {
@@ -1325,8 +1326,17 @@ class SyncService {
     final VersionedBackupSnapshot snapshot = await backup
         .createPlanningCloudBackup();
     if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
+    final bool unchanged = await compute(_sameSnapshotContent, (
+      local: snapshot.payload,
+      cloud: cloudBackup,
+    ), debugLabel: 'compareCloudBackupSnapshots');
+    if (!_accountStillCurrent) return CloudSyncOutcome.accountChanged;
+    if (!syncEnabled) return CloudSyncOutcome.disabled;
+    if (!backup.isLocalGenerationCurrent(snapshot.localGeneration)) {
+      return CloudSyncOutcome.conflict;
+    }
     final CloudBackupStatus? known = status.read();
-    if (_sameSnapshotContent(snapshot.payload, cloudBackup)) {
+    if (unchanged) {
       if (known?.revision != revision) {
         await _recordBackup(revision, _snapshotTime(cloudBackup));
       }
@@ -1356,15 +1366,14 @@ class SyncService {
 
   /// Whether two full snapshots hold the same data, ignoring when each was
   /// made.
-  bool _sameSnapshotContent(
-    Map<String, dynamic> local,
-    Map<String, dynamic> cloud,
+  static bool _sameSnapshotContent(
+    ({Map<String, dynamic> local, Map<String, dynamic> cloud}) snapshots,
   ) {
-    final Object? normalizedLocal = jsonDecode(jsonEncode(local));
+    final Object? normalizedLocal = jsonDecode(jsonEncode(snapshots.local));
     if (normalizedLocal is! Map<String, dynamic>) return false;
     return _jsonValuesEqual(
       <String, dynamic>{...normalizedLocal}..remove('timestamp'),
-      <String, dynamic>{...cloud}..remove('timestamp'),
+      <String, dynamic>{...snapshots.cloud}..remove('timestamp'),
     );
   }
 
@@ -1532,7 +1541,7 @@ class SyncService {
     }
   }
 
-  bool _jsonValuesEqual(Object? left, Object? right) {
+  static bool _jsonValuesEqual(Object? left, Object? right) {
     if (identical(left, right)) return true;
     if (left is Map && right is Map) {
       if (left.length != right.length) return false;

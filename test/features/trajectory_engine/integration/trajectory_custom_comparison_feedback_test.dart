@@ -78,9 +78,11 @@ class _Actions extends TrajectoryForecastLedgerActions {
   }
 
   @override
-  Future<int> reconcile(TrajectoryBaseline baseline) async {
+  Future<TrajectoryReconcileCounts> reconcile(
+    TrajectoryBaseline baseline,
+  ) async {
     reconciles++;
-    return 0;
+    return TrajectoryReconcileCounts.none;
   }
 }
 
@@ -292,9 +294,7 @@ Future<void> _composer(WidgetTester tester, {bool es = false}) async {
   await tester.tap(find.text(label).hitTestable());
   await _frames(tester);
   await tester.scrollUntilVisible(
-    find
-        .text(es ? 'Comparar trayectoria de 7 días' : 'Compare 7-day path')
-        .hitTestable(),
+    find.text(es ? 'Comparar en 7 días' : 'Compare over 7 days').hitTestable(),
     180,
     scrollable: scroll,
   );
@@ -303,9 +303,7 @@ Future<void> _composer(WidgetTester tester, {bool es = false}) async {
 
 Future<void> _compare(WidgetTester tester, {bool es = false}) async {
   await tester.tap(
-    find
-        .text(es ? 'Comparar trayectoria de 7 días' : 'Compare 7-day path')
-        .hitTestable(),
+    find.text(es ? 'Comparar en 7 días' : 'Compare over 7 days').hitTestable(),
   );
   await _frames(tester);
 }
@@ -336,6 +334,10 @@ void main() {
       final guidance =
           container.read(adaptiveGuidanceProvider.notifier) as _QuietGuidance;
       await _frames(tester);
+      // Moving the list programmatically is not the person scrolling.
+      await tester.ensureVisible(find.text('How this helps you'));
+      await _frames(tester);
+      expect(guidance.recorded, isEmpty);
       await tester.tap(find.text('How this helps you'));
       await _frames(tester);
       expect(guidance.recorded, isEmpty);
@@ -371,10 +373,10 @@ void main() {
               await tester.tap(find.text('Keep current plan').first);
             default:
               // Moving the list programmatically is not the person scrolling.
-              await tester.ensureVisible(find.text('30 DAYS'));
+              await tester.ensureVisible(find.text('30 days'));
               await _frames(tester);
               expect(guidance.recorded, isEmpty);
-              await tester.tap(find.text('30 DAYS').hitTestable());
+              await tester.tap(find.text('30 days').hitTestable());
               expect(container.read(trajectoryHorizonDaysProvider), 30);
           }
           await _frames(tester);
@@ -434,9 +436,7 @@ void main() {
               .read(_control.notifier)
               .hold(container.read(trajectoryEngineModelProvider));
           await tester.ensureVisible(
-            find.text(
-              es ? 'Comparar trayectoria de 7 días' : 'Compare 7-day path',
-            ),
+            find.text(es ? 'Comparar en 7 días' : 'Compare over 7 days'),
           );
           await _compare(tester, es: es);
           expect(find.text(view).hitTestable(), findsOneWidget);
@@ -489,7 +489,7 @@ void main() {
             await tester.tap(find.text('Delay'));
             await _frames(tester);
           }
-          await tester.ensureVisible(find.text('Compare 7-day path'));
+          await tester.ensureVisible(find.text('Compare over 7 days'));
           await _compare(tester);
           expect(find.text('View comparison'), findsOneWidget);
           final submitted = container.read(trajectoryCustomScenarioProvider)!;
@@ -546,7 +546,7 @@ void main() {
             container.read(trajectoryEngineModelProvider).comparison,
             same(previousComparison),
           );
-          await tester.ensureVisible(find.text('Compare 7-day path'));
+          await tester.ensureVisible(find.text('Compare over 7 days'));
           await _compare(tester);
           final next = container.read(trajectoryCustomScenarioProvider)!;
           switch (edit) {
@@ -636,7 +636,7 @@ void main() {
         expect(tester.takeException(), isNull);
         container.read(_control.notifier).mode('automatic');
         await _frames(tester);
-        await tester.ensureVisible(find.text('Compare 7-day path'));
+        await tester.ensureVisible(find.text('Compare over 7 days'));
         await _compare(tester);
         expect(
           container.read(trajectoryCustomScenarioProvider)!.subjectId,
@@ -729,7 +729,7 @@ void main() {
       await tester.ensureVisible(find.text('Delay'));
       await tester.tap(find.text('Delay'));
       await _frames(tester);
-      await tester.ensureVisible(find.text('Compare 7-day path'));
+      await tester.ensureVisible(find.text('Compare over 7 days'));
       await _compare(tester);
       final latest = container.read(trajectoryCustomScenarioProvider)!;
       expect(latest.adjustment, TrajectoryCustomAdjustment.delay);

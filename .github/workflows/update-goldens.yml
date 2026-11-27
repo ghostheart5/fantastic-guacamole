@@ -67,7 +67,7 @@ jobs:
         run: git diff --exit-code -- pubspec.lock
 
       - name: Regenerate golden images
-        run: flutter test test/features/auth/login_screen_golden_test.dart test/features/home/first_use_context_offer_card_test.dart test/features/nexus/nexus_screen_golden_test.dart test/features/settings/settings_screen_test.dart --update-goldens
+        run: flutter test test/features/auth/login_screen_golden_test.dart test/features/home/first_use_context_offer_card_test.dart test/features/nexus/nexus_screen_golden_test.dart test/features/settings/settings_screen_test.dart test/features/trajectory_engine/future_outcomes_golden_test.dart test/features/progression/patterns_golden_test.dart --update-goldens
 
       - name: Verify golden comparison contract
         shell: pwsh
@@ -82,6 +82,8 @@ jobs:
             test/features/home/goldens/ \
             test/features/nexus/goldens/ \
             test/features/settings/goldens/ \
+            test/features/trajectory_engine/goldens/ \
+            test/features/progression/goldens/ \
             > golden-update.patch
           if [ ! -s golden-update.patch ]; then
             echo "No golden changes detected."
@@ -101,4 +103,6 @@ jobs:
             test/features/home/goldens/${{ matrix.platform }}/**
             test/features/nexus/goldens/${{ matrix.platform }}/**
             test/features/settings/goldens/${{ matrix.platform }}/**
+            test/features/trajectory_engine/goldens/${{ matrix.platform }}/**
+            test/features/progression/goldens/${{ matrix.platform }}/**
             test/**/failures/**

@@ -74,6 +74,61 @@ void main() {
     },
   );
 
+  for (final ThemeData theme in <ThemeData>[appTheme, appLightTheme]) {
+    testWidgets(
+      'My Plan task editor works at 320 dp and 200% text in ${theme.brightness.name}',
+      (tester) async {
+        final h = _Harness();
+        await h.pump(
+          tester,
+          asPlan: true,
+          theme: theme,
+          size: const Size(320, 568),
+          textScale: 2,
+        );
+        final Finder options = find.descendant(
+          of: find.byKey(const ValueKey('library-task-a')),
+          matching: find.byTooltip('More options'),
+        );
+        final Finder list = find
+            .byWidgetPredicate(
+              (widget) =>
+                  widget is Scrollable &&
+                  widget.axisDirection == AxisDirection.down,
+            )
+            .last;
+        await tester.scrollUntilVisible(options, 180, scrollable: list);
+        await tester.pumpAndSettle();
+        expect(tester.getSize(options).shortestSide, greaterThanOrEqualTo(48));
+        await tester.tap(options);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Edit'));
+        await tester.pumpAndSettle();
+        final Finder title = find.byKey(const Key('timeline-task-title-field'));
+        expect(title, findsOneWidget);
+        final EditableText editable = tester.widget<EditableText>(
+          find.descendant(of: title, matching: find.byType(EditableText)),
+        );
+        final InputDecorator input = tester.widget<InputDecorator>(
+          find.descendant(of: title, matching: find.byType(InputDecorator)),
+        );
+        expect(
+          _contrast(editable.style.color!, input.decoration.fillColor!),
+          greaterThanOrEqualTo(4.5),
+        );
+        await tester.enterText(title, 'Large text edit');
+        final Finder save = find.widgetWithText(FilledButton, 'Save');
+        await tester.ensureVisible(save);
+        await tester.pumpAndSettle();
+        await tester.tap(save);
+        await tester.pumpAndSettle();
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(h.snapshot().toString(), contains('Large text edit'));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final light in [false, true]) {
     testWidgets(
       'My plan dark artwork stays readable with ${light ? 'Light' : 'Dark'} forms',
@@ -674,9 +729,11 @@ class _Harness {
     WidgetTester tester, {
     bool asPlan = false,
     ThemeData? theme,
+    Size size = const Size(1000, 1800),
+    double textScale = 1,
   }) async {
     addTearDown(container.dispose);
-    tester.view.physicalSize = const Size(1000, 1800);
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
@@ -684,6 +741,12 @@ class _Harness {
         container: container,
         child: MaterialApp(
           theme: theme,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
           localizationsDelegates: const [
             ChronoSparkLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,

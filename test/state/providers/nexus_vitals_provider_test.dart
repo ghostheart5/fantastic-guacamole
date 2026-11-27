@@ -87,9 +87,10 @@ void main() {
           container.read(nexusTrajectoryVitalsProvider).momentumPercent,
           entry.key,
         );
+        // The fixture's v4 workload over the next 7 days (150 / 840).
         expect(
           container.read(nexusTrajectoryVitalsProvider).pressurePercent,
-          58,
+          18,
         );
         expect(container.read(nexusTrajectoryVitalsProvider).activeCount, 2);
         expect(

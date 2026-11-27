@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/features/help/help_topics.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/providers/adaptive_replanning_provider.dart';
 import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_provider.dart';
@@ -265,6 +266,33 @@ void main() {
       expect(es.text(ChronoSparkString.timeline), 'Mi plan');
     });
 
+    test('the Insights and Patterns hints keep their routes and milestones '
+        'and use the new names', () {
+      expect(
+        GuidanceCatalogue.trajectoryEngine.route,
+        RoutePaths.trajectoryEngine,
+      );
+      expect(GuidanceCatalogue.progression.route, RoutePaths.progression);
+      expect(
+        GuidanceCatalogue.trajectoryEngine.completedBy.milestones,
+        <GuidanceMilestone>{GuidanceMilestone.firstTrajectoryReview},
+      );
+      expect(
+        GuidanceCatalogue.progression.completedBy.milestones,
+        <GuidanceMilestone>{GuidanceMilestone.firstProgressionReview},
+      );
+      expect(
+        GuidanceCatalogue.trajectoryEngine.title.en,
+        'Compare future outcomes',
+      );
+      expect(
+        GuidanceCatalogue.trajectoryEngine.title.es,
+        'Compara resultados futuros',
+      );
+      expect(GuidanceCatalogue.progression.title.en, 'Review your patterns');
+      expect(GuidanceCatalogue.progression.title.es, 'Revisa tus patrones');
+    });
+
     test('hint wording names each screen as its navigation label does', () {
       expect(GuidanceCatalogue.siConsole.action?.label.en, 'Ask in Chat');
       expect(GuidanceCatalogue.siConsole.action?.label.es, 'Preguntar en Chat');
@@ -280,20 +308,55 @@ void main() {
         GuidanceCatalogue.timelineRecovery.action?.label.en,
         'Review in My plan',
       );
-      expect(GuidanceCatalogue.progression.action?.label.en, 'Review activity');
+      expect(GuidanceCatalogue.progression.action?.label.en, 'Review patterns');
       expect(
         GuidanceCatalogue.progression.action?.label.es,
-        'Revisar actividad',
+        'Revisar patrones',
+      );
+      // The what-if offers finishing, putting off or removing a task; it
+      // never compares a priority, so the hint does not promise one.
+      expect(
+        GuidanceCatalogue.trajectoryEngine.body.en,
+        'Try finishing, putting off or removing a task. Compare the estimate '
+        'before changing your plan.',
       );
       expect(
         GuidanceCatalogue.trajectoryEngine.body.es,
-        'Prueba otra hora, otra cantidad de trabajo u otra prioridad. '
-        'Compara la estimación antes de cambiar tu plan.',
+        'Prueba a terminar, aplazar o quitar una tarea. Compara la '
+        'estimación antes de cambiar tu plan.',
       );
       expect(
+        HelpTopics.insights.body.en,
+        'Insights has two parts. Patterns shows what you recorded. Future '
+        'outcomes shows estimates of what could happen next, and you can '
+        'compare finishing, putting off or removing a task before you change '
+        'your plan.',
+      );
+      expect(
+        HelpTopics.insights.body.es,
+        'Perspectivas tiene dos partes. Patrones muestra lo que registraste. '
+        'Resultados futuros muestra estimaciones de lo que podría pasar '
+        'después, y puedes comparar terminar, aplazar o quitar una tarea '
+        'antes de cambiar tu plan.',
+      );
+      for (final String text in <String>[
+        GuidanceCatalogue.trajectoryEngine.body.en,
+        GuidanceCatalogue.trajectoryEngine.body.es,
+        HelpTopics.insights.body.en,
+        HelpTopics.insights.body.es,
+      ]) {
+        expect(text, isNot(contains(RegExp('priorit|prioridad'))));
+      }
+      expect(
         GuidanceCatalogue.progression.body.es,
-        'Ve las tareas y los hitos que registraste. Abre los detalles para '
-        'revisarlos.',
+        'Ve las tareas y los hábitos que registraste: rachas, registros y '
+        'cuándo terminas las cosas.',
+      );
+      // The page has no "details" to open; it shows recorded tasks and habits.
+      expect(
+        GuidanceCatalogue.progression.body.en,
+        'See the tasks and habits you recorded: streaks, check-ins and when '
+        'you get things done.',
       );
       expect(
         GuidanceCatalogue.timelineExecution.body.es,

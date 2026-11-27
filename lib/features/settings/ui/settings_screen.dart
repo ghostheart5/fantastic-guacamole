@@ -407,6 +407,7 @@ class SettingsScreen extends ConsumerWidget {
                             ),
                           };
                           return _NeonStatusTile(
+                            subtitleMaxLines: null,
                             title: copy(
                               'Alert Permission',
                               'Permiso de notificaciones',

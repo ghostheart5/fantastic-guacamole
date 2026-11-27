@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
+import 'package:fantastic_guacamole/engine/trajectory/future_consequence_engine.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/adaptive_replanning_provider.dart';
 import 'package:fantastic_guacamole/state/providers/future_timeline_provider.dart';
@@ -145,6 +146,80 @@ void main() {
       expect(
         timeline.checkpoints.last.classification,
         'Exploratory conditional scenario',
+      );
+      // Model v4: each checkpoint measures the work over its own range.
+      for (final FutureTimelineCheckpoint checkpoint in timeline.checkpoints) {
+        expect(
+          checkpoint.evidence,
+          containsAll(<String>[
+            'horizon_days=${checkpoint.days}',
+            'tasks_in_horizon=2',
+            'required_minutes_in_horizon=150',
+            'daily_free_minutes=120',
+          ]),
+        );
+      }
+    });
+
+    test('simulations carry the range workload, not the shared index', () {
+      final ProviderContainer container = _container(
+        momentum: _momentum(score: 61, pressure: 58, energy: 64),
+      );
+      addTearDown(container.dispose);
+
+      final TrajectorySimulationResult keepGoing = container
+          .read(trajectorySimulationProvider)
+          .firstWhere(
+            (TrajectorySimulationResult item) =>
+                item.title == 'Maintain current course',
+          );
+      // 150 minutes over 7 days of 120 free minutes: 150 / 840 = 18%.
+      expect(keepGoing.projectedPressure, 18);
+      expect(keepGoing.modelVersion, 'trajectory-consequence-v4');
+    });
+
+    test('the fixture baseline uses the v4 meaning of pressure', () {
+      // 150 minutes in the next 7 days of 120 free minutes a day.
+      expect(trajectoryTestBaseline().pressure, 18);
+      expect(trajectoryTestBaseline(horizonDays: 30).pressureInHorizon, 4);
+    });
+
+    test('removing a task keeps its advantage when rounding hides it', () {
+      // 90 days of 480 free minutes: 150 and 90 required minutes both round
+      // to a 0% workload, but the option is still ranked on the minutes.
+      final TrajectoryBaseline baseline = trajectoryTestBaseline(
+        availabilityOrigin: PredictiveEvidenceOrigin.estimated,
+        dailyFreeMinutes: 480,
+      );
+      TrajectoryScenarioOutcome run(TrajectoryInterventionType type) =>
+          const FutureConsequenceEngine().project(
+            baseline: baseline,
+            generatedAt: trajectoryFixtureNow,
+            intervention: TrajectoryIntervention(
+              id: type.name,
+              type: type,
+              title: type.name,
+              horizon: const Duration(days: 90),
+              description: 'Rounding fixture.',
+              subjectId: type == TrajectoryInterventionType.reduceScope
+                  ? 'task-polish'
+                  : null,
+            ),
+          );
+      final TrajectoryScenarioOutcome keep = run(
+        TrajectoryInterventionType.maintainCourse,
+      );
+      final TrajectoryScenarioOutcome reduce = run(
+        TrajectoryInterventionType.reduceScope,
+      );
+      expect(keep.projectedPressure, 0);
+      expect(reduce.projectedPressure, 0);
+      expect(reduce.risk.projectedScore, keep.risk.projectedScore);
+      // Momentum +1 (x .42) plus the unrounded relief: 60 minutes of
+      // 480 x 90 free minutes = 0.139 points (x .36).
+      expect(
+        reduce.utilityScore - keep.utilityScore,
+        closeTo(.42 + .36 * 100 * 60 / (480 * 90), 1e-9),
       );
     });
 

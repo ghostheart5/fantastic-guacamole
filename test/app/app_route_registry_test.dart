@@ -103,7 +103,7 @@ void main() {
         'Add something',
         'Choose a step',
         'Profile',
-        'Activity',
+        'Patterns',
         'Settings',
       ]);
       for (final AppRouteDefinition route in <AppRouteDefinition>[
@@ -204,7 +204,7 @@ void main() {
         RoutePaths.legacySi: RoutePaths.si,
         RoutePaths.legacyTasks: RoutePaths.tasks,
         RoutePaths.legacyProfile: RoutePaths.profile,
-        RoutePaths.legacyInsights: RoutePaths.smartPlanner,
+        RoutePaths.legacyInsights: RoutePaths.trajectoryEngine,
       });
       expect(externalAliases, <String, String>{
         'home': RoutePaths.nexus,

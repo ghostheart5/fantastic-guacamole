@@ -19,6 +19,7 @@ import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/theme/app_theme.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/ui/navigation/insights_destination_switch.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/rendering.dart';
@@ -45,9 +46,11 @@ class _CountingActions extends TrajectoryForecastLedgerActions {
   }
 
   @override
-  Future<int> reconcile(TrajectoryBaseline baseline) async {
+  Future<TrajectoryReconcileCounts> reconcile(
+    TrajectoryBaseline baseline,
+  ) async {
     reconciles++;
-    return 0;
+    return TrajectoryReconcileCounts.none;
   }
 }
 
@@ -199,7 +202,7 @@ Future<void> _chooseDelay(WidgetTester tester) async {
   await tester.tap(find.text('Delay').hitTestable());
   await tester.pump(const Duration(milliseconds: 300));
   await tester.scrollUntilVisible(
-    find.text('Compare 7-day path').hitTestable(),
+    find.text('Compare over 7 days').hitTestable(),
     150,
     scrollable: scrollable,
   );
@@ -207,7 +210,7 @@ Future<void> _chooseDelay(WidgetTester tester) async {
 
 void main() {
   for (final es in <bool>[false, true]) {
-    testWidgets('time range copy says it changes certainty, not the projection '
+    testWidgets('time range copy says it changes the estimate and reliability '
         '(${es ? 'es' : 'en'})', (tester) async {
       await _open(tester, locale: Locale(es ? 'es' : 'en'));
       final texts = tester
@@ -219,39 +222,43 @@ void main() {
       expect(
         texts.any(
           (t) => es
-              ? t.contains('en tu plan ahora.')
-              : t.contains('in your plan right now.'),
+              ? t == 'En los próximos 7 días.'
+              : t == 'Over the next 7 days.',
         ),
         isTrue,
       );
 
-      await tester.tap(
-        find.text(es ? 'Cómo te ayuda esto' : 'How this helps you'),
-      );
-      await tester.pump(const Duration(seconds: 1));
-      final expected = es
-          ? '• Elige un camino para ver cuánto podrías lograr y cuánta presión '
-                'podrías sentir. El periodo (7, 30 o 90 días) cambia lo amplia '
-                'que es la incertidumbre, no los números proyectados: cuanto '
-                'más lejos, menos seguro. “Ajuste recomendado” marca '
-                'el camino que mejor se ve ahora.'
-          : '• Pick a path to see how much you might get done and how much '
-                'pressure you might feel. The time range (7, 30 or 90 days) '
-                'changes how wide the uncertainty is, not the projected '
-                'numbers: further ahead means less certain. '
-                '“Recommended adjustment” marks the path that looks '
-                'best right now.';
-      expect(find.text(expected), findsOneWidget);
-
-      final title = _ready().comparison!.outcomes.first.intervention.title;
+      final helps = find.text(es ? 'Cómo te ayuda esto' : 'How this helps you');
       await tester.scrollUntilVisible(
-        find.text(title).first.hitTestable(),
+        helps.hitTestable(),
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.text(title).first.hitTestable());
+      await tester.tap(helps.hitTestable());
       await tester.pump(const Duration(seconds: 1));
-      final marker = es ? 'Este camino proyecta' : 'This path projects';
+      final expected = es
+          ? '• Elige una opción para ver cómo podrían cambiar tu carga de '
+                'trabajo y tu ritmo. El periodo (7, 30 o 90 días) cambia la '
+                'estimación: decide qué tareas cuentan y cuánto tiempo libre '
+                'hay. Cuanto más lejos, menos fiable, por eso los rangos son '
+                'más amplios. “Ajuste recomendado” marca la opción que mejor '
+                'se ve ahora, cuando hay suficiente historial.'
+          : '• Pick an option to see how your workload and pace could change. '
+                'The time range (7, 30 or 90 days) changes the estimate: it '
+                'sets which tasks count and how much free time there is. '
+                'Further ahead is less reliable, so the ranges are wider. '
+                '“Recommended adjustment” marks the option that looks best '
+                'right now, once there is enough history.';
+      expect(find.text(expected), findsOneWidget);
+
+      final title = _ready().comparison!.outcomes.first.intervention.title;
+      await tester.ensureVisible(find.text(title).first);
+      await tester.pump();
+      await tester.tap(find.text(title).first);
+      await tester.pump(const Duration(seconds: 1));
+      final marker = es
+          ? 'Frente a seguir como vas'
+          : 'Compared with keeping going';
       await tester.scrollUntilVisible(
         find.textContaining(marker).first,
         300,
@@ -260,11 +267,18 @@ void main() {
       expect(
         find.textContaining(
           es
-              ? 'solo cambia lo amplia que es la incertidumbre'
-              : 'range only changes how wide',
+              ? 'decide qué tareas cuentan y cuánto tiempo libre hay'
+              : 'it sets which tasks count and how much free time there is',
         ),
         findsWidgets,
       );
+      // The old claim that the range leaves the numbers unchanged is gone.
+      expect(find.textContaining('not the projected numbers'), findsNothing);
+      expect(find.textContaining('no los números proyectados'), findsNothing);
+      expect(find.textContaining('range only changes'), findsNothing);
+      expect(find.textContaining('solo cambia lo amplia'), findsNothing);
+      expect(find.textContaining('menos seguro'), findsNothing);
+      expect(find.textContaining('less certain'), findsNothing);
       expect(find.textContaining('Over 7 days'), findsNothing);
       expect(find.textContaining('Durante 7 días'), findsNothing);
     });
@@ -280,14 +294,15 @@ void main() {
             outcome.intervention.type ==
             TrajectoryInterventionType.maintainCourse,
       );
+      expect(target.intervention.title, 'Maintain current course');
+      // The keep-going option goes by the page's own name for it.
+      const String shown = 'Keep going as you are';
       await tester.scrollUntilVisible(
-        find.text(target.intervention.title).first.hitTestable(),
+        find.text(shown).first.hitTestable(),
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(
-        find.text(target.intervention.title).first.hitTestable(),
-      );
+      await tester.tap(find.text(shown).first.hitTestable());
       await tester.pump();
       await tester.scrollUntilVisible(
         find.text('Review on Schedule').hitTestable(),
@@ -295,12 +310,19 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       await tester.tap(find.text('Review on Schedule').hitTestable());
+      await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       await tester.pump();
       expect(find.byType(TimelineScreen), findsOneWidget);
       expect(find.text('Schedule'), findsOneWidget);
       expect(container.read(appFlowProvider), AppView.trajectoryEngine);
-      await tester.tap(find.byTooltip('Back').hitTestable());
+      final Finder scheduleBack = find.descendant(
+        of: find.byType(TimelineScreen),
+        matching: find.widgetWithIcon(IconButton, Icons.arrow_back_rounded),
+      );
+      expect(tester.widget<IconButton>(scheduleBack).tooltip, 'Back');
+      await tester.tap(scheduleBack);
+      await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       await tester.pump();
       expect(find.byType(TimelineScreen), findsNothing);
@@ -335,11 +357,11 @@ void main() {
       );
       await tester.pump();
       await tester.scrollUntilVisible(
-        find.text('Review adjustment').hitTestable(),
+        find.text('Open Choose a step').hitTestable(),
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.text('Review adjustment').hitTestable());
+      await tester.tap(find.text('Open Choose a step').hitTestable());
       await tester.pump();
       expect(container.read(appFlowProvider), AppView.smartPlanner);
       expect(find.byType(TimelineScreen), findsNothing);
@@ -423,14 +445,14 @@ void main() {
     (tester) async {
       final container = await _open(tester);
       await _chooseDelay(tester);
-      expect(find.text('Declared delay: 1 day'), findsOneWidget);
+      expect(find.text('Put off by: 1 day'), findsOneWidget);
 
-      final compare = find.widgetWithText(FilledButton, 'Compare 7-day path');
+      final compare = find.widgetWithText(FilledButton, 'Compare over 7 days');
       final oldCompare = tester.widget<FilledButton>(compare).onPressed!;
-      Focus.of(tester.element(find.text('Compare 7-day path'))).requestFocus();
+      Focus.of(tester.element(find.text('Compare over 7 days'))).requestFocus();
       await tester.pump();
       expect(
-        Focus.of(tester.element(find.text('Compare 7-day path'))).hasFocus,
+        Focus.of(tester.element(find.text('Compare over 7 days'))).hasFocus,
         isTrue,
       );
       // Focus is a separate interaction and may reveal its target. Measure
@@ -440,13 +462,13 @@ void main() {
           .position;
       final offset = position.pixels;
       final extent = position.maxScrollExtent;
-      final compareY = tester.getTopLeft(find.text('Compare 7-day path')).dy;
+      final compareY = tester.getTopLeft(find.text('Compare over 7 days')).dy;
       expect(offset, greaterThan(0));
       container.read(_model.notifier).show(TrajectoryEngineStatus.loading);
       await tester.pump();
       expect(position.maxScrollExtent, closeTo(extent, 1));
       expect(
-        tester.getTopLeft(find.text('Compare 7-day path')).dy,
+        tester.getTopLeft(find.text('Compare over 7 days')).dy,
         closeTo(compareY, 1),
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -456,7 +478,7 @@ void main() {
         find.textContaining('Updating estimate. The previous result'),
         findsOneWidget,
       );
-      expect(find.text('Declared delay: 1 day'), findsOneWidget);
+      expect(find.text('Put off by: 1 day'), findsOneWidget);
       expect(
         tester
             .state<ScrollableState>(find.byType(Scrollable).first)
@@ -477,7 +499,7 @@ void main() {
             .absorbing,
         isTrue,
       );
-      await tester.tap(find.text('Compare 7-day path'), warnIfMissed: false);
+      await tester.tap(find.text('Compare over 7 days'), warnIfMissed: false);
       expect(container.read(trajectoryCustomScenarioProvider), isNull);
 
       container.read(_model.notifier).revise();
@@ -486,7 +508,7 @@ void main() {
         find.textContaining('Updating estimate. The previous result'),
         findsNothing,
       );
-      expect(find.text('Declared delay: 1 day'), findsOneWidget);
+      expect(find.text('Put off by: 1 day'), findsOneWidget);
       expect(
         tester
             .state<ScrollableState>(find.byType(Scrollable).first)
@@ -499,18 +521,11 @@ void main() {
   );
 
   testWidgets(
-    'focused Track cannot write while refreshing and Back remains usable',
+    'focused Track cannot write while refreshing and the switch remains usable',
     (tester) async {
       final container = await _open(tester);
       final scroll = find.byType(Scrollable).first;
-      await tester.scrollUntilVisible(
-        find.text('Full impact and evidence'),
-        300,
-        scrollable: scroll,
-      );
-      await tester.tap(find.text('Full impact and evidence'));
-      await tester.pump(const Duration(seconds: 1));
-      const label = 'Track this path for monitoring';
+      const label = 'Track this option for monitoring';
       await tester.scrollUntilVisible(
         find.text(label).hitTestable(),
         300,
@@ -547,22 +562,29 @@ void main() {
             .onPressed,
         isNull,
       );
-      await tester.tap(find.byTooltip('Back'));
-      expect(container.read(appFlowProvider), AppView.nexus);
+      // The Insights root has no Back arrow; the two-part switch still works.
+      expect(find.byTooltip('Back'), findsNothing);
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(InsightsDestinationSwitch.switchKey),
+          matching: find.text('Patterns'),
+        ),
+      );
+      expect(container.read(appFlowProvider), AppView.progression);
       expect(tester.takeException(), isNull);
     },
   );
 
   testWidgets(
-    'expanded Task predictions retain rendered evidence during loading',
+    'expanded task follow-through retains rendered evidence during loading',
     (tester) async {
       final container = await _open(tester);
       await tester.scrollUntilVisible(
-        find.text('Task predictions').hitTestable(),
+        find.text('What this is based on').hitTestable(),
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.text('Task predictions').hitTestable());
+      await tester.tap(find.text('What this is based on').hitTestable());
       await tester.pump(const Duration(seconds: 1));
       final evidence = find.textContaining(
         'Completion is plausible if the protected block holds.',
@@ -607,7 +629,7 @@ void main() {
       await _chooseDelay(tester);
       container.read(_model.notifier).show(TrajectoryEngineStatus.loading);
       await tester.pump();
-      expect(find.text('Declared delay: 1 day'), findsOneWidget);
+      expect(find.text('Put off by: 1 day'), findsOneWidget);
       switch (reason) {
         case 'account-generation':
           container
@@ -621,12 +643,12 @@ void main() {
               .show(TrajectoryEngineStatus.values.byName(reason));
       }
       await tester.pump();
-      expect(find.text('Declared delay: 1 day'), findsNothing);
+      expect(find.text('Put off by: 1 day'), findsNothing);
       expect(
         find.textContaining('Updating estimate. The previous result'),
         findsNothing,
       );
-      expect(find.text('CURRENT DIRECTION'), findsNothing);
+      expect(find.text('If you keep going as you are'), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }

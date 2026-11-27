@@ -36,8 +36,12 @@ class SIConsoleShortcutDefinition {
 
   // Old shortcut tokens remain accepted without being advertised as tool names.
   Iterable<String> get advertisedAliases => aliases.where(
-    (alias) =>
-        !const {'/timeline', '/trajectory', '/progression'}.contains(alias),
+    (alias) => !const {
+      '/timeline',
+      '/trajectory',
+      '/progression',
+      '/activity',
+    }.contains(alias),
   );
 
   Iterable<String> get tokens sync* {
@@ -231,12 +235,15 @@ abstract final class SIConsoleShortcutRegistry {
         ),
         SIConsoleShortcutDefinition(
           id: 'progression',
-          label: 'Activity',
-          shortcut: '/activity',
-          description: 'analyze level, XP, streak, and progress signals',
+          label: 'Patterns',
+          shortcut: '/patterns',
+          // Answered here in Chat; the Patterns screen itself is in Insights.
+          description:
+              'ask here about your level, XP and streaks; your recorded '
+              'patterns are in Insights',
           route: SIShortcutRoute.intelligenceQuery,
           argumentPolicy: SIShortcutArgumentPolicy.forwardToIntelligence,
-          aliases: <String>['/xp', '/progression'],
+          aliases: <String>['/activity', '/xp', '/progression'],
           surface: 'progression',
         ),
         SIConsoleShortcutDefinition(

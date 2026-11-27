@@ -20,6 +20,7 @@ import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
+import 'package:fantastic_guacamole/ui/widgets/plain/plain.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -28,7 +29,7 @@ part 'timeline_screen.source_notice.dart';
 part 'timeline_screen.event_copy.dart';
 part 'timeline_screen.filters.dart';
 
-enum _TimelineWindow { today, week, month, year, all }
+enum _TimelineWindow { today, thisWeek, week, month, year, all }
 
 enum _TimelineFilter {
   all,
@@ -170,7 +171,14 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         ? combined
         : combined.where((event) {
             final DateTime moment = _eventMoment(event);
-            return _inWindow(moment: moment, now: now, window: _window);
+            return _inWindow(
+              moment: moment,
+              now: now,
+              window: _window,
+              firstDayOfWeek: MaterialLocalizations.of(
+                context,
+              ).firstDayOfWeekIndex,
+            );
           });
     final List<TimelineEventEntity> windowEvents = windowSource.toList(
       growable: false,

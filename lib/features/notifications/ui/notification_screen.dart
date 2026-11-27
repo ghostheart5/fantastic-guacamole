@@ -3,9 +3,8 @@ import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/ports/notification_scheduler_port.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
-import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
-import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
+import 'package:fantastic_guacamole/ui/widgets/plain/plain.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -46,72 +45,50 @@ class NotificationsPage extends ConsumerWidget {
         .where((item) => isNewNotificationActivity(item, now))
         .length;
 
-    return AnimatedSystemBackground(
-      backgroundAssetPath: AppAssets.bgTimelineThreads,
-      overlayOpacity: 0.5,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
-                child: _Header(
-                  unreadCount: unreadCount,
-                  scheduledCount: scheduledCount,
-                  totalCount: items.length + repeating.length,
-                  onBack: () => Navigator.of(context).pop(),
-                ),
-              ),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
-                  children: [
-                    if (automations.isLoading) const LinearProgressIndicator(),
-                    if (automations.hasError)
-                      TextButton(
-                        onPressed: () =>
-                            ref.invalidate(automationNotificationsProvider),
-                        child: Text(
-                          es
-                              ? 'Estado del recordatorio no disponible. Reintentar'
-                              : 'Reminder schedule status unavailable. Retry',
-                        ),
-                      ),
-                    for (final reminder in repeating)
-                      Card(
-                        child: ListTile(
-                          leading: const Icon(Icons.repeat),
-                          title: Text(reminder.title),
-                          subtitle: Text(
-                            '${reminder.message}\n${reminder is AutomationNotification && !reminder.registeredTimeKnown ? (es ? "Hora configurada; hora registrada no disponible" : "Configured time; registered time unavailable") : (es ? "Pr\u00f3xima hora programada" : "Next scheduled time")}: ${localizations.formatMediumDate(reminder.scheduledAt)} ${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(reminder.scheduledAt))}\n${es ? "La entrega es aproximada. Administra este recordatorio recurrente en Ajustes." : "Delivery is approximate. Manage this repeating reminder in Settings."}',
-                          ),
-                        ),
-                      ),
-                    if (items.isEmpty &&
-                        repeating.isEmpty &&
-                        !automations.isLoading &&
-                        !automations.hasError)
-                      const _EmptyState(),
-                    for (final item in items)
-                      _NotificationTile(
-                        item: item,
-                        registered: registered,
-                        onMarkRead: () => ref
-                            .read(notificationProvider.notifier)
-                            .markRead(item.id),
-                        onDelete: () => ref
-                            .read(notificationProvider.notifier)
-                            .delete(item.id),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+    return PlainScreen(
+      children: <Widget>[
+        _Header(
+          unreadCount: unreadCount,
+          scheduledCount: scheduledCount,
+          totalCount: items.length + repeating.length,
+          onBack: () => Navigator.of(context).pop(),
         ),
-      ),
+        const SizedBox(height: 16),
+        if (automations.isLoading) const LinearProgressIndicator(),
+        if (automations.hasError)
+          TextButton(
+            onPressed: () => ref.invalidate(automationNotificationsProvider),
+            child: Text(
+              es
+                  ? 'Estado del recordatorio no disponible. Reintentar'
+                  : 'Reminder schedule status unavailable. Retry',
+            ),
+          ),
+        for (final reminder in repeating)
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.repeat),
+              title: Text(reminder.title),
+              subtitle: Text(
+                '${reminder.message}\n${reminder is AutomationNotification && !reminder.registeredTimeKnown ? (es ? "Hora configurada; hora registrada no disponible" : "Configured time; registered time unavailable") : (es ? "Pr\u00f3xima hora programada" : "Next scheduled time")}: ${localizations.formatMediumDate(reminder.scheduledAt)} ${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(reminder.scheduledAt))}\n${es ? "La entrega es aproximada. Administra este recordatorio recurrente en Ajustes." : "Delivery is approximate. Manage this repeating reminder in Settings."}',
+              ),
+            ),
+          ),
+        if (items.isEmpty &&
+            repeating.isEmpty &&
+            !automations.isLoading &&
+            !automations.hasError)
+          const _EmptyState(),
+        for (final item in items)
+          _NotificationTile(
+            item: item,
+            registered: registered,
+            onMarkRead: () =>
+                ref.read(notificationProvider.notifier).markRead(item.id),
+            onDelete: () =>
+                ref.read(notificationProvider.notifier).delete(item.id),
+          ),
+      ],
     );
   }
 }
@@ -132,21 +109,31 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool es = Localizations.localeOf(context).languageCode == 'es';
-    return TemporalScreenHeader(
-      title: es ? 'NOTIFICACIONES' : 'NOTIFICATIONS',
-      subtitle: es
-          ? 'Actividad y recordatorios programados.'
-          : 'Activity and scheduled reminders.',
-      eyebrow: es
-          ? '$unreadCount nuevas · $scheduledCount programadas · $totalCount en total'
-          : '$unreadCount new · $scheduledCount scheduled · $totalCount total',
-      onBack: onBack,
-      trailing: Icon(
-        unreadCount == 0
-            ? Icons.notifications_none_rounded
-            : Icons.notifications_active_outlined,
-        color: AppColors.neonCyan,
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        PlainHeader(
+          title: es ? 'NOTIFICACIONES' : 'NOTIFICATIONS',
+          actions: <PlainHeaderAction>[
+            PlainHeaderAction(
+              icon: Icons.arrow_back_rounded,
+              label: es ? 'Atrás' : 'Back',
+              onPressed: onBack,
+            ),
+          ],
+        ),
+        Text(
+          es
+              ? 'Actividad y recordatorios programados.'
+              : 'Activity and scheduled reminders.',
+        ),
+        const SizedBox(height: 4),
+        Text(
+          es
+              ? '$unreadCount nuevas · $scheduledCount programadas · $totalCount en total'
+              : '$unreadCount new · $scheduledCount scheduled · $totalCount total',
+        ),
+      ],
     );
   }
 }

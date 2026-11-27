@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:fantastic_guacamole/l10n/insights_copy.dart';
 import 'package:fantastic_guacamole/l10n/creator_copy.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/emotional_safety_policy.dart';
@@ -240,8 +241,8 @@ class ChronoSparkLocalizations {
     ChronoSparkString.creator: 'Add something',
     ChronoSparkString.siConsole: 'Chat',
     ChronoSparkString.timeline: 'My plan',
-    ChronoSparkString.trajectoryEngine: 'Insights',
-    ChronoSparkString.progression: 'Activity',
+    ChronoSparkString.trajectoryEngine: InsightsCopy.tabNameEn,
+    ChronoSparkString.progression: InsightsCopy.patternsEn,
     ChronoSparkString.preparingSummary: 'Preparing your summary',
     ChronoSparkString.retryNexus: 'Try again',
     ChronoSparkString.whatMattersNext: 'What matters next',
@@ -355,7 +356,7 @@ class ChronoSparkLocalizations {
         'Write down a thought, save something you need to do, or ask for help with your plans. Suggestions are there to review. You choose what happens next.',
     ChronoSparkString.aboutCoreSurfacesTitle: 'Find your way around',
     ChronoSparkString.aboutCoreSurfacesBody:
-        'Start at Today. Add something saves tasks, notes, goals, and habits. Choose a step helps with planning. Chat answers questions about your plans. My plan shows tasks, goals, habits, your schedule, and history. Insights shows patterns, predictions, and future outcomes to review. Activity shows recorded progress.',
+        'Start at Today. Add something saves tasks, notes, goals, and habits. Choose a step helps with planning. Chat answers questions about your plans. My plan shows tasks, goals, habits, your schedule, and history. Insights has two parts: Future outcomes shows estimates to review, and Patterns shows what you recorded.',
     ChronoSparkString.aboutGuidingPrincipleTitle: 'You stay in control',
     ChronoSparkString.aboutGuidingPrincipleBody:
         'Review suggestions before acting. Estimates can be wrong. You can review or correct recorded outcomes.',
@@ -378,8 +379,8 @@ class ChronoSparkLocalizations {
     ChronoSparkString.creator: 'Añadir algo',
     ChronoSparkString.siConsole: 'Chat',
     ChronoSparkString.timeline: 'Mi plan',
-    ChronoSparkString.trajectoryEngine: 'Perspectivas',
-    ChronoSparkString.progression: 'Actividad',
+    ChronoSparkString.trajectoryEngine: InsightsCopy.tabNameEs,
+    ChronoSparkString.progression: InsightsCopy.patternsEs,
     ChronoSparkString.preparingSummary: 'Preparando tu resumen',
     ChronoSparkString.retryNexus: 'Reintentar',
     ChronoSparkString.whatMattersNext: 'Lo más importante ahora',
@@ -495,7 +496,7 @@ class ChronoSparkLocalizations {
         'Escribe una idea, guarda algo que necesites hacer o pide ayuda con tus planes. Puedes revisar las sugerencias. Tú decides qué hacer después.',
     ChronoSparkString.aboutCoreSurfacesTitle: 'Cómo moverte por la app',
     ChronoSparkString.aboutCoreSurfacesBody:
-        'Empieza en Hoy. Añadir algo guarda tareas, notas, metas y hábitos. Elegir un paso ayuda a planificar. Chat responde preguntas sobre tus planes. Mi plan muestra tareas, metas, hábitos, tu agenda e historial. Perspectivas muestra patrones, predicciones y resultados futuros para revisar. Actividad muestra avances registrados.',
+        'Empieza en Hoy. Añadir algo guarda tareas, notas, metas y hábitos. Elegir un paso ayuda a planificar. Chat responde preguntas sobre tus planes. Mi plan muestra tareas, metas, hábitos, tu agenda e historial. Perspectivas tiene dos partes: Resultados futuros muestra estimaciones para revisar y Patrones muestra lo que registraste.',
     ChronoSparkString.aboutGuidingPrincipleTitle: 'Tú decides',
     ChronoSparkString.aboutGuidingPrincipleBody:
         'Revisa las sugerencias antes de actuar. Las estimaciones pueden equivocarse. Puedes revisar o corregir los resultados registrados.',
@@ -1011,8 +1012,8 @@ final class SIRoutineCopy {
       'plan' => 'Plan',
       'milestones' => 'Hitos',
       'timeline' => 'Agenda',
-      'trajectory' => 'Perspectivas',
-      'progression' => 'Actividad',
+      'trajectory' => InsightsCopy.tabNameEs,
+      'progression' => InsightsCopy.patternsEs,
       'memories' => 'Memorias',
       'emotions' => 'Emociones',
       _ => definition.label,
@@ -1030,7 +1031,9 @@ final class SIRoutineCopy {
       'milestones' => 'resumir salud, riesgo y próximo objetivo de los hitos',
       'timeline' => 'resumir hitos y eventos recientes',
       'trajectory' => 'resumir impulso, presión y predicción',
-      'progression' => 'analizar nivel, XP, racha y señales de progreso',
+      'progression' =>
+        'preguntar aquí por tu nivel, XP y rachas; tus patrones registrados '
+            'están en ${InsightsCopy.tabNameEs}',
       'memories' => 'analizar preferencias guardadas y memorias pertinentes',
       'emotions' => 'analizar evidencia explícita del registro emocional',
       _ => definition.description,

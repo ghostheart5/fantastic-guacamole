@@ -14,9 +14,7 @@ import 'package:fantastic_guacamole/state/services/habit_occurrence_coordinator.
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
 import 'package:fantastic_guacamole/tutorial/guide_hint_place.dart';
-import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
-import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
-import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
+import 'package:fantastic_guacamole/ui/widgets/plain/plain.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -328,6 +326,7 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, update) => AlertDialog(
+          scrollable: true,
           title: Text(
             weekly
                 ? _t('Remind me on', 'Recordarme los')
@@ -371,6 +370,7 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
       final String? choice = await showDialog<String>(
         context: context,
         builder: (dialogContext) => AlertDialog(
+          scrollable: true,
           title: Text(_t('Reminder', 'Recordatorio')),
           content: Text(_reminderLabel(habit)),
           actions: [
@@ -582,77 +582,80 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
     AsyncValue<List<HabitEntity>> habits,
     AsyncValue<List<HabitOccurrenceEntity>> occurrences,
   ) {
-    return AnimatedSystemBackground(
-      backgroundAssetPath: AppAssets.bgCreatorIntent,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              TemporalScreenHeader(
-                title: _t('Habits', 'Hábitos'),
-                subtitle: _t(
-                  'Choose a habit to mark what happened or change how often it repeats.',
-                  'Elige un hábito para registrar lo que pasó o cambiar su frecuencia.',
-                ),
-                eyebrow: _t('One check-in at a time', 'Un registro cada vez'),
-                onBack: () => Navigator.of(context).pop(),
+    final ThemeData theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        visualDensity: VisualDensity.standard,
+        materialTapTargetSize: MaterialTapTargetSize.padded,
+      ),
+      child: PlainScreen(
+        children: <Widget>[
+          PlainHeader(
+            title: _t('Habits', 'Hábitos'),
+            actions: <PlainHeaderAction>[
+              PlainHeaderAction(
+                icon: Icons.arrow_back_rounded,
+                label: _t('Back', 'Atrás'),
+                onPressed: () => Navigator.of(context).pop(),
               ),
-              const SizedBox(height: 20),
-              if (!writable || owner == null)
-                Text(
-                  _t(
-                    'Sign in to view your habits.',
-                    'Inicia sesión para ver tus hábitos.',
-                  ),
-                )
-              else
-                habits.when(
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (_, _) => _retry(
-                    _t(
-                      'Could not load habits.',
-                      'No se pudieron cargar los hábitos.',
-                    ),
-                    () => ref.invalidate(habitsProvider),
-                  ),
-                  data: (items) => items.isEmpty
-                      ? Text(
-                          _t(
-                            'No habits yet. Go to Add something and choose Habit to save one.',
-                            'Aún no hay hábitos. Ve a Añadir algo y elige Hábito para guardar uno.',
-                          ),
-                        )
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (occurrences.hasError)
-                              _retry(
-                                _t(
-                                  'Could not load period outcomes.',
-                                  'No se pudieron cargar los resultados del periodo.',
-                                ),
-                                () => ref.invalidate(habitOccurrencesProvider),
-                              ),
-                            for (final habit in items)
-                              _card(owner, habit, occurrences.asData?.value),
-                          ],
-                        ),
-                ),
             ],
           ),
-        ),
+          Text(
+            _t(
+              'Choose a habit to mark what happened or change how often it repeats.',
+              'Elige un hábito para registrar lo que pasó o cambiar su frecuencia.',
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (!writable || owner == null)
+            PlainEmptyState(
+              message: _t(
+                'Sign in to view your habits.',
+                'Inicia sesión para ver tus hábitos.',
+              ),
+            )
+          else
+            habits.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, _) => _retry(
+                _t(
+                  'Could not load habits.',
+                  'No se pudieron cargar los hábitos.',
+                ),
+                () => ref.invalidate(habitsProvider),
+              ),
+              data: (items) => items.isEmpty
+                  ? PlainEmptyState(
+                      message: _t(
+                        'No habits yet. Go to Add something and choose Habit to save one.',
+                        'Aún no hay hábitos. Ve a Añadir algo y elige Hábito para guardar uno.',
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        if (occurrences.hasError)
+                          _retry(
+                            _t(
+                              'Could not load period outcomes.',
+                              'No se pudieron cargar los resultados del periodo.',
+                            ),
+                            () => ref.invalidate(habitOccurrencesProvider),
+                          ),
+                        for (final HabitEntity habit in items)
+                          _card(owner, habit, occurrences.asData?.value),
+                      ],
+                    ),
+            ),
+        ],
       ),
     );
   }
 
-  Widget _retry(String text, VoidCallback retry) => Column(
-    children: [
-      Text(text),
-      TextButton(onPressed: retry, child: Text(_t('Retry', 'Reintentar'))),
-    ],
+  Widget _retry(String text, VoidCallback retry) => PlainEmptyState(
+    message: text,
+    actionLabel: _t('Retry', 'Reintentar'),
+    onAction: retry,
   );
 
   Widget _card(
@@ -686,187 +689,175 @@ class _DailyRhythmsScreenState extends ConsumerState<DailyRhythmsScreen> {
         : es
         ? 'En pausa'
         : 'Paused';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: TemporalGlassSurface(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(habit.title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text(
-              es
-                  ? '${habit.targetCount} ${habit.targetCount == 1 ? 'vez' : 'veces'} por $period · ${habit.active ? 'Activo' : 'En pausa'}'
-                  : '${habit.targetCount} ${habit.targetCount == 1 ? 'time' : 'times'} per $period · ${habit.active ? 'Active' : 'Paused'}',
+    return PlainCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            habit.title,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: PlainPalette.card(Theme.of(context)).primary,
             ),
-            const SizedBox(height: 4),
-            habit.reminderMinutes == null
-                ? Text(
-                    _reminderLabel(habit),
-                    key: ValueKey<String>('rhythm-reminder-label-${habit.id}'),
-                  )
-                : HabitReminderLine(
-                    habitId: habit.id,
-                    label: _reminderLabel(habit),
-                  ),
-            if (habit.description?.isNotEmpty ?? false) ...[
-              const SizedBox(height: 8),
-              Text(habit.description!),
-            ],
-            const SizedBox(height: 8),
-            Text(
-              outcomes == null
-                  ? _t(
-                      'Loading this period’s outcome…',
-                      'Cargando el resultado de este periodo…',
-                    )
-                  : status,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _t(
-                'Mark complete when the full target for this $period is met.',
-                'Marca como completado cuando alcances el objetivo completo de este $period.',
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilledButton(
-                  onPressed: canRecord
-                      ? () => _record(owner, habit, true)
-                      : null,
-                  child: Text(
-                    _t('Mark target completed', 'Marcar objetivo completado'),
-                  ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            es
+                ? '${habit.targetCount} ${habit.targetCount == 1 ? 'vez' : 'veces'} por $period · ${habit.active ? 'Activo' : 'En pausa'}'
+                : '${habit.targetCount} ${habit.targetCount == 1 ? 'time' : 'times'} per $period · ${habit.active ? 'Active' : 'Paused'}',
+          ),
+          const SizedBox(height: 4),
+          habit.reminderMinutes == null
+              ? Text(
+                  _reminderLabel(habit),
+                  key: ValueKey<String>('rhythm-reminder-label-${habit.id}'),
+                )
+              : HabitReminderLine(
+                  habitId: habit.id,
+                  label: _reminderLabel(habit),
                 ),
-                OutlinedButton(
-                  onPressed: canRecord
-                      ? () => _record(owner, habit, false)
-                      : null,
-                  child: Text(_t('Skip this $period', 'Omitir este $period')),
-                ),
-                if (current != null && habit.active)
-                  TextButton.icon(
-                    key: ValueKey<String>('correct-rhythm-${habit.id}'),
-                    onPressed: busy
-                        ? null
-                        : () => _run(owner, habit, (notifier) async {
-                            final next =
-                                current!.outcome ==
-                                    HabitOccurrenceOutcome.completed
-                                ? HabitOccurrenceOutcome.skipped
-                                : HabitOccurrenceOutcome.completed;
-                            final result = await notifier.correctHabit(
-                              habit.id,
-                              next,
-                            );
-                            return result.learningPending
-                                ? _t(
-                                    'Outcome corrected. Learning history will retry later.',
-                                    'Resultado corregido. El historial de aprendizaje se reintentará después.',
-                                  )
-                                : _t(
-                                    'Outcome corrected. The earlier result remains in correction history.',
-                                    'Resultado corregido. El resultado anterior permanece en el historial de correcciones.',
-                                  );
-                          }),
-                    icon: const Icon(Icons.undo_rounded),
-                    label: Text(
-                      current.outcome == HabitOccurrenceOutcome.completed
-                          ? _t('Change to skipped', 'Cambiar a omitido')
-                          : _t('Change to completed', 'Cambiar a completado'),
-                    ),
-                  ),
-                SizedBox(
-                  width: double.infinity,
-                  child: ExpansionTile(
-                    key: ValueKey('habit-options-${habit.id}'),
-                    tilePadding: EdgeInsets.zero,
-                    title: Text(
-                      _t('Habit options', 'Opciones del h\u00e1bito'),
-                    ),
-                    children: [
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          if (habit.active)
-                            TextButton.icon(
-                              onPressed: busy
-                                  ? null
-                                  : () => _backfill(owner, habit),
-                              icon: const Icon(Icons.history_rounded),
-                              label: Text(
-                                _t('Record earlier', 'Registrar anterior'),
-                              ),
-                            ),
-                          TextButton(
-                            onPressed: busy
-                                ? null
-                                : () => _run(owner, habit, (notifier) async {
-                                    await notifier.toggleHabit(habit.id);
-                                    return habit.active
-                                        ? _t(
-                                            'Habit paused.',
-                                            'Hábito en pausa.',
-                                          )
-                                        : _t(
-                                            'Habit resumed.',
-                                            'Hábito reanudado.',
-                                          );
-                                  }),
-                            child: Text(
-                              habit.active
-                                  ? _t('Pause', 'Pausar')
-                                  : _t('Resume', 'Reanudar'),
-                            ),
-                          ),
-                          TextButton(
-                            key: ValueKey<String>(
-                              'rhythm-reminder-${habit.id}',
-                            ),
-                            onPressed: busy
-                                ? null
-                                : () => _editReminder(owner, habit),
-                            child: Text(
-                              habit.reminderMinutes == null
-                                  ? _t('Set reminder', 'Poner recordatorio')
-                                  : _t('Reminder', 'Recordatorio'),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: busy
-                                ? null
-                                : () => _editFrequency(owner, habit),
-                            child: Text(
-                              _t('Edit frequency', 'Editar frecuencia'),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: busy
-                                ? null
-                                : () => _rename(owner, habit),
-                            child: Text(_t('Rename', 'Renombrar')),
-                          ),
-                          TextButton(
-                            onPressed: busy
-                                ? null
-                                : () => _remove(owner, habit),
-                            child: Text(_t('Remove', 'Eliminar')),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          if (habit.description?.isNotEmpty ?? false) ...[
+            const SizedBox(height: 8),
+            Text(habit.description!),
           ],
-        ),
+          const SizedBox(height: 8),
+          Text(
+            outcomes == null
+                ? _t(
+                    'Loading this period’s outcome…',
+                    'Cargando el resultado de este periodo…',
+                  )
+                : status,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _t(
+              'Mark complete when the full target for this $period is met.',
+              'Marca como completado cuando alcances el objetivo completo de este $period.',
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton(
+                onPressed: canRecord ? () => _record(owner, habit, true) : null,
+                child: Text(
+                  _t('Mark target completed', 'Marcar objetivo completado'),
+                ),
+              ),
+              OutlinedButton(
+                onPressed: canRecord
+                    ? () => _record(owner, habit, false)
+                    : null,
+                child: Text(_t('Skip this $period', 'Omitir este $period')),
+              ),
+              if (current != null && habit.active)
+                TextButton.icon(
+                  key: ValueKey<String>('correct-rhythm-${habit.id}'),
+                  onPressed: busy
+                      ? null
+                      : () => _run(owner, habit, (notifier) async {
+                          final next =
+                              current!.outcome ==
+                                  HabitOccurrenceOutcome.completed
+                              ? HabitOccurrenceOutcome.skipped
+                              : HabitOccurrenceOutcome.completed;
+                          final result = await notifier.correctHabit(
+                            habit.id,
+                            next,
+                          );
+                          return result.learningPending
+                              ? _t(
+                                  'Outcome corrected. Learning history will retry later.',
+                                  'Resultado corregido. El historial de aprendizaje se reintentará después.',
+                                )
+                              : _t(
+                                  'Outcome corrected. The earlier result remains in correction history.',
+                                  'Resultado corregido. El resultado anterior permanece en el historial de correcciones.',
+                                );
+                        }),
+                  icon: const Icon(Icons.undo_rounded),
+                  label: Text(
+                    current.outcome == HabitOccurrenceOutcome.completed
+                        ? _t('Change to skipped', 'Cambiar a omitido')
+                        : _t('Change to completed', 'Cambiar a completado'),
+                  ),
+                ),
+              SizedBox(
+                width: double.infinity,
+                child: ExpansionTile(
+                  key: ValueKey('habit-options-${habit.id}'),
+                  tilePadding: EdgeInsets.zero,
+                  title: Text(_t('Habit options', 'Opciones del h\u00e1bito')),
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (habit.active)
+                          TextButton.icon(
+                            onPressed: busy
+                                ? null
+                                : () => _backfill(owner, habit),
+                            icon: const Icon(Icons.history_rounded),
+                            label: Text(
+                              _t('Record earlier', 'Registrar anterior'),
+                            ),
+                          ),
+                        TextButton(
+                          onPressed: busy
+                              ? null
+                              : () => _run(owner, habit, (notifier) async {
+                                  await notifier.toggleHabit(habit.id);
+                                  return habit.active
+                                      ? _t('Habit paused.', 'Hábito en pausa.')
+                                      : _t(
+                                          'Habit resumed.',
+                                          'Hábito reanudado.',
+                                        );
+                                }),
+                          child: Text(
+                            habit.active
+                                ? _t('Pause', 'Pausar')
+                                : _t('Resume', 'Reanudar'),
+                          ),
+                        ),
+                        TextButton(
+                          key: ValueKey<String>('rhythm-reminder-${habit.id}'),
+                          onPressed: busy
+                              ? null
+                              : () => _editReminder(owner, habit),
+                          child: Text(
+                            habit.reminderMinutes == null
+                                ? _t('Set reminder', 'Poner recordatorio')
+                                : _t('Reminder', 'Recordatorio'),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: busy
+                              ? null
+                              : () => _editFrequency(owner, habit),
+                          child: Text(
+                            _t('Edit frequency', 'Editar frecuencia'),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: busy ? null : () => _rename(owner, habit),
+                          child: Text(_t('Rename', 'Renombrar')),
+                        ),
+                        TextButton(
+                          onPressed: busy ? null : () => _remove(owner, habit),
+                          child: Text(_t('Remove', 'Eliminar')),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

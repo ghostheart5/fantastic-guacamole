@@ -1,21 +1,147 @@
 import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
+import 'package:fantastic_guacamole/domain/trajectory/trajectory_calibration_adjustment.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
+import 'package:fantastic_guacamole/engine/si/si_deadline.dart';
 
 /// Deterministic counterfactual projector.
 ///
 /// This engine does not claim causal certainty. It compares explicit
 /// interventions against one immutable baseline and returns provisional ranges,
 /// evidence, assumptions, and goal/Timeline/Progression consequences.
+///
+/// Model v4: the time range (the intervention's horizon) decides which tasks
+/// count, and workload is the share of free time the work in the range needs.
 class FutureConsequenceEngine {
   const FutureConsequenceEngine();
+
+  /// The work inside a range of [horizonDays] local calendar days from [now]:
+  /// a task counts when its earliest scheduled or due time is no later than
+  /// the same wall-clock time [horizonDays] days later, when it is overdue,
+  /// or when it has no date (undated tasks count in every range). A whole-day
+  /// deadline owns its whole local day. Expected completions follow the last
+  /// 7 days' pace: mid = round(completed / 7 x days), capped at the tasks in
+  /// the range, with ceil(sqrt(mid)) either side.
+  static TrajectoryHorizonWorkload horizonWorkload({
+    required List<TrajectoryTaskNode> tasks,
+    required DateTime now,
+    required int horizonDays,
+    required int completedLast7Days,
+  }) {
+    final int days = math.max(1, horizonDays);
+    final DateTime local = now.toLocal();
+    // Calendar fields, not Duration: a clock change must not shift the end.
+    final DateTime end = DateTime(
+      local.year,
+      local.month,
+      local.day + days,
+      local.hour,
+      local.minute,
+      local.second,
+      local.millisecond,
+      local.microsecond,
+    );
+    final DateTime dayAfterRange = DateTime(
+      local.year,
+      local.month,
+      local.day + days + 1,
+    );
+    final Set<String> ids = <String>{};
+    int minutes = 0;
+    int undated = 0;
+    for (final TrajectoryTaskNode task in tasks) {
+      final DateTime? scheduled = task.scheduledAt;
+      final DateTime? due = task.dueAt;
+      final bool dated = scheduled != null || due != null;
+      final bool inside =
+          !dated ||
+          (scheduled != null && !scheduled.isAfter(end)) ||
+          (due != null &&
+              (task.dueDay != null
+                  ? siDeadlinePast(due, task.dueDay, dayAfterRange)
+                  : !due.isAfter(end)));
+      if (!inside || !ids.add(task.id)) continue;
+      if (!dated) undated++;
+      minutes += math.max(0, task.estimatedMinutes);
+    }
+    final int count = ids.length;
+    final int mid = math.min(
+      count,
+      (math.max(0, completedLast7Days) / 7 * days).round(),
+    );
+    final int spread = math.sqrt(mid).ceil();
+    return TrajectoryHorizonWorkload(
+      horizonDays: days,
+      taskIds: ids,
+      requiredMinutes: minutes,
+      expectedCompletions: TrajectoryExpectedCompletions(
+        low: math.max(0, mid - spread),
+        mid: mid,
+        high: math.min(count, mid + spread),
+      ),
+      undatedTasks: undated,
+    );
+  }
+
+  /// Free minutes over [days] days (at least one) of [dailyFreeMinutes]. A
+  /// "capacity right now" limit, [firstDayFreeMinutes], applies to the first
+  /// day only: min(daily, limit) + daily × (days − 1). Without a limit this
+  /// is daily × days. The provider and the engine both use this.
+  static int freeMinutesOver({
+    required int dailyFreeMinutes,
+    int? firstDayFreeMinutes,
+    required int days,
+  }) {
+    final int daily = math.max(0, dailyFreeMinutes);
+    final int first = firstDayFreeMinutes == null
+        ? daily
+        : firstDayFreeMinutes.clamp(0, daily);
+    return first + daily * (math.max(1, days) - 1);
+  }
+
+  /// The share of free time (0-100) that [requiredMinutes] need over [days]
+  /// days of [dailyFreeMinutes] (the first day limited to
+  /// [firstDayFreeMinutes] when given): 0 without work, 100 with work and no
+  /// free time.
+  static int capacityLoad({
+    required int requiredMinutes,
+    required int dailyFreeMinutes,
+    required int days,
+    int? firstDayFreeMinutes,
+  }) {
+    if (requiredMinutes <= 0) return 0;
+    final int free = freeMinutesOver(
+      dailyFreeMinutes: dailyFreeMinutes,
+      firstDayFreeMinutes: firstDayFreeMinutes,
+      days: days,
+    );
+    if (free <= 0) return 100;
+    return (100 * requiredMinutes / free).round().clamp(0, 100);
+  }
+
+  /// Local days needed to work through [minutes] at [dailyFreeMinutes] a
+  /// day, the first day limited to [firstDayFreeMinutes]: at least one.
+  static int workDaysFor({
+    required int minutes,
+    required int dailyFreeMinutes,
+    int? firstDayFreeMinutes,
+  }) {
+    final int first = freeMinutesOver(
+      dailyFreeMinutes: dailyFreeMinutes,
+      firstDayFreeMinutes: firstDayFreeMinutes,
+      days: 1,
+    );
+    if (minutes <= first) return 1;
+    return 1 + ((minutes - first) / dailyFreeMinutes).ceil();
+  }
 
   TrajectoryComparison compare({
     required TrajectoryBaseline baseline,
     required List<TrajectoryIntervention> interventions,
     DateTime? generatedAt,
+    TrajectoryCalibrationAdjustment? calibration,
   }) {
     final DateTime now = (generatedAt ?? DateTime.now()).toUtc();
     final List<TrajectoryScenarioOutcome> outcomes =
@@ -25,6 +151,7 @@ class FutureConsequenceEngine {
                 baseline: baseline,
                 intervention: intervention,
                 generatedAt: now,
+                calibration: calibration,
               ),
             )
             .toList(growable: false)
@@ -43,28 +170,60 @@ class FutureConsequenceEngine {
     required TrajectoryBaseline baseline,
     required TrajectoryIntervention intervention,
     DateTime? generatedAt,
+    TrajectoryCalibrationAdjustment? calibration,
   }) {
     final DateTime now = (generatedAt ?? DateTime.now()).toUtc();
     final TrajectoryTaskNode? subject = _task(baseline, intervention.subjectId);
     final int horizonDays = math.max(1, intervention.horizon.inDays);
-    final ({int momentum, int pressure}) deltas = _metricDeltas(
-      baseline: baseline,
+    final TrajectoryHorizonWorkload workload = horizonWorkload(
+      tasks: baseline.tasks,
+      now: baseline.observedAt,
+      horizonDays: horizonDays,
+      completedLast7Days: baseline.completedInWindow,
+    );
+    final int reliefMinutes = _reliefMinutes(intervention, subject, workload);
+    final int keepGoingPressure = capacityLoad(
+      requiredMinutes: workload.requiredMinutes,
+      dailyFreeMinutes: baseline.dailyFreeMinutes,
+      firstDayFreeMinutes: baseline.firstDayFreeMinutes,
+      days: horizonDays,
+    );
+    final int momentumDelta = _momentumDelta(
       intervention: intervention,
       subject: subject,
+      rangeWorkload: keepGoingPressure,
     );
-    final int projectedMomentum = (baseline.momentum + deltas.momentum).clamp(
+    final int projectedMomentum = (baseline.momentum + momentumDelta).clamp(
       0,
       100,
     );
-    final int projectedPressure = (baseline.pressure + deltas.pressure).clamp(
-      0,
-      100,
+    final int projectedPressure = capacityLoad(
+      requiredMinutes: workload.requiredMinutes - reliefMinutes,
+      dailyFreeMinutes: baseline.dailyFreeMinutes,
+      firstDayFreeMinutes: baseline.firstDayFreeMinutes,
+      days: horizonDays,
     );
-    final int uncertainty = _uncertainty(baseline, horizonDays);
+    final int freeInRange = freeMinutesOver(
+      dailyFreeMinutes: baseline.dailyFreeMinutes,
+      firstDayFreeMinutes: baseline.firstDayFreeMinutes,
+      days: horizonDays,
+    );
+    // Options are ranked against keeping going over the same range, on the
+    // unrounded share of free time, so removing a typical task keeps its
+    // advantage at long ranges where the shown whole percent rounds it away.
+    final double pressureDelta = freeInRange <= 0
+        ? (projectedPressure - keepGoingPressure).toDouble()
+        : -100 * reliefMinutes / freeInRange;
+    // Recorded forecast accuracy, when supplied, widens or narrows the range
+    // within the engine's bounds and sets the calibration state.
+    final int baseUncertainty = _uncertainty(baseline, horizonDays);
+    final int uncertainty =
+        calibration?.apply(baseUncertainty) ?? baseUncertainty;
     final PredictiveConfidenceProfile confidence = _confidence(
       baseline,
       uncertainty,
       horizonDays,
+      calibration?.state ?? PredictiveCalibrationState.provisional,
     );
     final TimelineConsequence timeline = _timelineConsequence(
       baseline,
@@ -76,6 +235,7 @@ class FutureConsequenceEngine {
       baseline: baseline,
       intervention: intervention,
       subject: subject,
+      currentPressure: keepGoingPressure,
       projectedPressure: projectedPressure,
       timeline: timeline,
     );
@@ -97,8 +257,8 @@ class FutureConsequenceEngine {
           total + math.max(0, goal.delayDays),
     );
     final double utility =
-        (deltas.momentum * .42) -
-        (deltas.pressure * .36) -
+        (momentumDelta * .42) -
+        (pressureDelta * .36) -
         ((risk.projectedScore - risk.currentScore) * .28) -
         (totalGoalDelay * 1.7) +
         (progression.potentialXp * .06) -
@@ -131,12 +291,22 @@ class FutureConsequenceEngine {
         if (baseline.personContextTrace.isNotEmpty)
           'person_context_trace=${baseline.personContextTrace}',
         'subject=${subject?.id ?? 'portfolio'}',
+        'horizon_days=$horizonDays',
+        'daily_free_minutes=${baseline.dailyFreeMinutes}',
+        if (baseline.firstDayFreeMinutes != baseline.dailyFreeMinutes)
+          'first_day_free_minutes=${baseline.firstDayFreeMinutes}',
+        'daily_free_origin=${baseline.dailyFreeOrigin.name}',
+        'tasks_in_horizon=${workload.taskCount}',
+        'required_minutes_in_horizon=${workload.requiredMinutes}',
+        'expected_completions=${workload.expectedCompletions.low}-${workload.expectedCompletions.mid}-${workload.expectedCompletions.high}',
         ...baseline.sourceRevisions.entries.map(
           (MapEntry<String, String> item) => '${item.key}=${item.value}',
         ),
       ],
       assumptions: <String>[
         ...intervention.assumptions,
+        ...baseline.assumptions,
+        if (goals.isNotEmpty) trajectoryGoalDateAssumption,
         ...baseline.personContextWarnings.map(
           (String warning) => 'Person Context constraint: $warning',
         ),
@@ -151,43 +321,49 @@ class FutureConsequenceEngine {
           '${intervention.title} changes $subjectLabel against baseline ${baseline.revision}. '
           'Projected risk is ${risk.band.name}; ${timeline.summary}',
       utilityScore: utility,
+      calibrationMultiplier: calibration?.multiplier ?? 1.0,
+      unadjustedUncertainty: baseUncertainty,
+      reliefMinutes: reliefMinutes,
     );
   }
 
-  ({int momentum, int pressure}) _metricDeltas({
-    required TrajectoryBaseline baseline,
+  /// Momentum deltas keep their v3 constants (a known limitation: they are
+  /// not fitted to the person's observed rates). Reducing scope helps pace
+  /// more when [rangeWorkload], the workload over the option's own range
+  /// (what the screen shows), is heavy.
+  int _momentumDelta({
     required TrajectoryIntervention intervention,
     required TrajectoryTaskNode? subject,
+    required int rangeWorkload,
   }) {
     final int priority = subject?.priority.clamp(1, 5) ?? 3;
-    final int load = ((subject?.estimatedMinutes ?? 45) / 30).ceil().clamp(
-      1,
-      8,
-    );
     return switch (intervention.type) {
-      TrajectoryInterventionType.maintainCourse => (momentum: 0, pressure: 0),
-      TrajectoryInterventionType.applySmartPlanner => (
-        momentum: 5 + math.min(5, intervention.proposedBlocks.length),
-        pressure: -(4 + math.min(12, baseline.unscheduledMinutes ~/ 30))
-            .toInt(),
+      TrajectoryInterventionType.maintainCourse => 0,
+      TrajectoryInterventionType.applySmartPlanner =>
+        5 + math.min(5, intervention.proposedBlocks.length),
+      TrajectoryInterventionType.completeTask => 4 + priority * 2,
+      TrajectoryInterventionType.delayTask => -(2 + priority),
+      TrajectoryInterventionType.reduceScope => rangeWorkload >= 65 ? 4 : 1,
+      TrajectoryInterventionType.recoverCommitment => 3 + priority,
+    };
+  }
+
+  /// Minutes an option takes out of the range: completing or removing a task
+  /// that is in the range removes its minutes. Delaying keeps them (its cost
+  /// shows as deadline crossings); the other options remove no work.
+  int _reliefMinutes(
+    TrajectoryIntervention intervention,
+    TrajectoryTaskNode? subject,
+    TrajectoryHorizonWorkload workload,
+  ) {
+    if (subject == null || !workload.taskIds.contains(subject.id)) return 0;
+    return switch (intervention.type) {
+      TrajectoryInterventionType.completeTask ||
+      TrajectoryInterventionType.reduceScope => math.max(
+        0,
+        subject.estimatedMinutes,
       ),
-      TrajectoryInterventionType.completeTask => (
-        momentum: 4 + priority * 2,
-        pressure: -(2 + math.min(8, load)).toInt(),
-      ),
-      TrajectoryInterventionType.delayTask => (
-        momentum: -(2 + priority),
-        pressure: (3 + priority + math.min(6, intervention.delay.inDays))
-            .toInt(),
-      ),
-      TrajectoryInterventionType.reduceScope => (
-        momentum: baseline.pressure >= 65 ? 4 : 1,
-        pressure: -(5 + math.min(10, load)).toInt(),
-      ),
-      TrajectoryInterventionType.recoverCommitment => (
-        momentum: 3 + priority,
-        pressure: -(3 + math.min(7, load)).toInt(),
-      ),
+      _ => 0,
     };
   }
 
@@ -198,8 +374,8 @@ class FutureConsequenceEngine {
         ? 8
         : 0;
     return (24 - sampleRelief + horizonPenalty + missingDataPenalty).clamp(
-      8,
-      42,
+      trajectoryUncertaintyMinimum,
+      trajectoryUncertaintyMaximum,
     );
   }
 
@@ -207,6 +383,7 @@ class FutureConsequenceEngine {
     TrajectoryBaseline baseline,
     int uncertainty,
     int horizonDays,
+    PredictiveCalibrationState calibration,
   ) {
     final double horizonFreshness = (1 - (horizonDays - 1) / 120).clamp(
       .2,
@@ -217,7 +394,7 @@ class FutureConsequenceEngine {
       freshness: baseline.confidence.freshness * horizonFreshness,
       sampleSufficiency: baseline.confidence.sampleSufficiency,
       intervalPrecision: (1 - uncertainty * 2 / 100).clamp(0.0, 1.0),
-      calibration: PredictiveCalibrationState.provisional,
+      calibration: calibration,
     );
   }
 
@@ -274,9 +451,12 @@ class FutureConsequenceEngine {
     required TrajectoryBaseline baseline,
     required TrajectoryIntervention intervention,
     required TrajectoryTaskNode? subject,
+    required int currentPressure,
     required int projectedPressure,
     required TimelineConsequence timeline,
   }) {
+    // currentPressure is keeping going over the same range, so current and
+    // projected describe the same window.
     final int currentDeferral = baseline.observationCount == 0
         ? 0
         : ((baseline.deferredInWindow / baseline.observationCount) * 100)
@@ -305,7 +485,7 @@ class FutureConsequenceEngine {
       projectedCapacity = (capacityBase - 18).clamp(0, 100);
     }
     final List<int> currentRiskSignals = <int>[
-      baseline.pressure,
+      currentPressure,
       currentDeferral,
       currentDeadline,
       if (baseline.hasObservedAvailability) capacityBase,
@@ -326,7 +506,7 @@ class FutureConsequenceEngine {
         TrajectoryRiskContribution(
           code: 'pressure',
           label: 'Pressure load',
-          currentScore: baseline.pressure,
+          currentScore: currentPressure,
           projectedScore: projectedPressure,
           explanation: 'Sustained pressure raises rollover and recovery risk.',
         ),
@@ -383,12 +563,22 @@ class FutureConsequenceEngine {
     required PredictiveConfidenceProfile confidence,
     required int uncertainty,
   }) {
-    if (!baseline.hasObservedAvailability ||
-        baseline.availableMinutes <= baseline.occupiedMinutes) {
+    if (!baseline.hasObservedAvailability || baseline.dailyFreeMinutes <= 0) {
       return const <GoalDelayProjection>[];
     }
-    final int freeMinutes =
-        baseline.availableMinutes - baseline.occupiedMinutes;
+    final DateTime local = generatedAt.toLocal();
+    // Calendar days at the same local clock time: a clock change must not
+    // shift the date.
+    DateTime daysLater(int days) => DateTime(
+      local.year,
+      local.month,
+      local.day + days,
+      local.hour,
+      local.minute,
+      local.second,
+      local.millisecond,
+      local.microsecond,
+    ).toUtc();
     return baseline.goals
         .map((TrajectoryGoalNode goal) {
           final List<TrajectoryTaskNode> linked = baseline.tasks
@@ -409,27 +599,33 @@ class FutureConsequenceEngine {
               goal.linkedTaskIds.contains(subject.id)) {
             remaining = math.max(0, remaining - subject.estimatedMinutes);
           }
-          final int workDays = math.max(1, (remaining / freeMinutes).ceil());
+          // Range-independent: the goal's remaining minutes at the daily free
+          // time (trajectoryGoalDateAssumption states this); a "capacity
+          // right now" limit holds back the first day only.
+          final int workDays = workDaysFor(
+            minutes: remaining,
+            dailyFreeMinutes: baseline.dailyFreeMinutes,
+            firstDayFreeMinutes: baseline.firstDayFreeMinutes,
+          );
           int interventionDelay = 0;
           if (intervention.type == TrajectoryInterventionType.delayTask &&
               subject != null &&
               goal.linkedTaskIds.contains(subject.id)) {
             interventionDelay = math.max(1, intervention.delay.inDays);
           }
-          final DateTime projected = generatedAt.add(
-            Duration(days: workDays + interventionDelay),
-          );
+          final int projectedDays = workDays + interventionDelay;
+          final DateTime projected = daysLater(projectedDays);
           final int intervalDays = math.max(1, (uncertainty / 8).ceil());
           final int delayDays = goal.targetDate == null
               ? 0
-              : math.max(0, projected.difference(goal.targetDate!).inDays);
+              : math.max(0, _calendarDaysBetween(goal.targetDate!, projected));
           return GoalDelayProjection(
             goalId: goal.id,
             goalTitle: goal.title,
             targetDate: goal.targetDate,
             projectedCompletion: projected,
-            lowerCompletion: projected.subtract(Duration(days: intervalDays)),
-            upperCompletion: projected.add(Duration(days: intervalDays)),
+            lowerCompletion: daysLater(projectedDays - intervalDays),
+            upperCompletion: daysLater(projectedDays + intervalDays),
             delayDays: delayDays,
             remainingMinutes: remaining,
             confidence: confidence,
@@ -441,6 +637,17 @@ class FutureConsequenceEngine {
           );
         })
         .toList(growable: false);
+  }
+
+  /// Local calendar days from the day of [from] to the day of [to].
+  static int _calendarDaysBetween(DateTime from, DateTime to) {
+    final DateTime a = from.toLocal();
+    final DateTime b = to.toLocal();
+    return DateTime.utc(
+      b.year,
+      b.month,
+      b.day,
+    ).difference(DateTime.utc(a.year, a.month, a.day)).inDays;
   }
 
   ProgressionConsequence _progressionConsequence(
@@ -463,7 +670,7 @@ class FutureConsequenceEngine {
       potentialXp: potentialXp,
       streakProtected: protectsStreak,
       summary: potentialXp == 0
-          ? 'No Activity reward is projected from this intervention alone.'
+          ? 'No progress reward is projected from this intervention alone.'
           : 'Up to $potentialXp XP is informationally projected if the action is actually completed; current streak protection is ${protectsStreak ? 'supported' : 'not supported'}.',
     );
   }

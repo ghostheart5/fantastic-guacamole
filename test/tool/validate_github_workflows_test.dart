@@ -20,7 +20,7 @@ const Map<String, String> _requiredGates = <String, String>{
   'coverage guard contract': './scripts/coverage_guard_contract.ps1',
   'coverage enforcement': './scripts/coverage_guard.ps1 -Mode ratchet',
   'Windows golden comparison':
-      'dart run tool/run_flutter_tests.dart --report artifacts/windows-golden-evidence/golden-tests.jsonl --manifest artifacts/windows-golden-evidence/golden-tests-manifest.json --timeout-seconds 1200 -- test/features/auth/login_screen_golden_test.dart test/features/home/first_use_context_offer_card_test.dart test/features/nexus/nexus_screen_golden_test.dart test/features/settings/settings_screen_test.dart --no-pub --concurrency=1',
+      'dart run tool/run_flutter_tests.dart --report artifacts/windows-golden-evidence/golden-tests.jsonl --manifest artifacts/windows-golden-evidence/golden-tests-manifest.json --timeout-seconds 1200 -- test/features/auth/login_screen_golden_test.dart test/features/home/first_use_context_offer_card_test.dart test/features/nexus/nexus_screen_golden_test.dart test/features/settings/settings_screen_test.dart test/features/trajectory_engine/future_outcomes_golden_test.dart test/features/progression/patterns_golden_test.dart --no-pub --concurrency=1',
 };
 
 const Map<String, String> _requiredGateJobs = <String, String>{

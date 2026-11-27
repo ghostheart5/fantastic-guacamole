@@ -391,7 +391,13 @@ void main() {
       await tester.drag(find.byType(CustomScrollView), const Offset(0, 1200));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
-      await _tapRequired(tester, find.bySemanticsLabel('Back'));
+      await _tapRequired(
+        tester,
+        find.descendant(
+          of: find.byType(TimelineScreen),
+          matching: find.byTooltip('Back'),
+        ),
+      );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.byType(TimelineScreen), findsNothing);

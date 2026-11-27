@@ -10,10 +10,9 @@ import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
-import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
-import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/system/temporal_glass.dart';
+import 'package:fantastic_guacamole/ui/widgets/plain/plain.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,53 +27,54 @@ class GoalsScreen extends ConsumerWidget {
     final goalsRead = ref.watch(goalsReadProvider);
     final bool es = Localizations.localeOf(context).languageCode == 'es';
 
-    return AnimatedSystemBackground(
-      backgroundAssetPath: AppAssets.bgTemporalCalm,
-      overlayOpacity: 0.46,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: PlainPaletteScope(
+          palette: PlainPalette.page,
           child: CustomScrollView(
             slivers: <Widget>[
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-                  child: TemporalScreenHeader(
-                    title: journeyText(context, 'Goals', 'Metas'),
-                    subtitle: journeyText(
-                      context,
-                      'Save a goal you want to work toward. Open it to review or edit it.',
-                      'Guarda una meta que quieras alcanzar. Ábrela para revisarla o editarla.',
-                    ),
-                    eyebrow: journeyText(
-                      context,
-                      '${goals.length} active',
-                      '${goals.length} ${goals.length == 1 ? 'activa' : 'activas'}',
-                    ),
-                    backTooltip: es ? 'Atrás' : 'Back',
-                    accent: AppColors.memoryAmber,
-                    onBack: () {
-                      if (Navigator.of(context).canPop()) {
-                        Navigator.of(context).pop();
-                      } else {
-                        goToAppView(context, ref, AppView.nexus);
-                      }
-                    },
-                    trailing: IconButton(
-                      tooltip: journeyText(context, 'Add goal', 'Añadir meta'),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints.tightFor(
-                        width: 48,
-                        height: 48,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      PlainHeader(
+                        title: journeyText(context, 'Goals', 'Metas'),
+                        actions: <PlainHeaderAction>[
+                          PlainHeaderAction(
+                            icon: Icons.arrow_back_rounded,
+                            label: es ? 'Atrás' : 'Back',
+                            onPressed: () {
+                              if (Navigator.of(context).canPop()) {
+                                Navigator.of(context).pop();
+                              } else {
+                                goToAppView(context, ref, AppView.nexus);
+                              }
+                            },
+                          ),
+                          PlainHeaderAction(
+                            icon: Icons.add_rounded,
+                            label: journeyText(
+                              context,
+                              'Add goal',
+                              'Añadir meta',
+                            ),
+                            onPressed: goalsRead.hasError
+                                ? null
+                                : () async => _showAddSheet(context, ref),
+                          ),
+                        ],
                       ),
-                      onPressed: goalsRead.hasError
-                          ? null
-                          : () async => _showAddSheet(context, ref),
-                      icon: const Icon(
-                        Icons.add_rounded,
-                        color: AppColors.neonCyan,
+                      Text(
+                        journeyText(
+                          context,
+                          'Save a goal you want to work toward. Open it to review or edit it.',
+                          'Guarda una meta que quieras alcanzar. Ábrela para revisarla o editarla.',
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ),

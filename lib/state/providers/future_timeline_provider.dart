@@ -1,6 +1,8 @@
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
+import 'package:fantastic_guacamole/domain/trajectory/trajectory_calibration_adjustment.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // CHRONOSPARK-CLASS: INTERNAL ARCHITECTURE ADAPTER
@@ -44,6 +46,11 @@ final futureTimelineProvider = Provider<FutureTimelineState>((ref) {
   if (comparison == null || selected == null) {
     return const FutureTimelineState(checkpoints: <FutureTimelineCheckpoint>[]);
   }
+  // The same recorded-accuracy rule as the comparison, so one forecast never
+  // shows two different ranges.
+  final TrajectoryCalibrationAdjustment calibration = ref.watch(
+    trajectoryCalibrationAdjustmentProvider,
+  );
   final checkpoints = <FutureTimelineCheckpoint>[];
   for (final int days in const <int>[7, 30, 90]) {
     final TrajectoryIntervention source = selected.intervention;
@@ -64,6 +71,7 @@ final futureTimelineProvider = Provider<FutureTimelineState>((ref) {
             displacedSubjectIds: source.displacedSubjectIds,
             assumptions: source.assumptions,
           ),
+          calibration: calibration,
         );
     final int low = (outcome.projectedMomentum - outcome.uncertainty).clamp(
       0,

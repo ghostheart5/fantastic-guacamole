@@ -36,8 +36,10 @@ class GuideHintCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const Color surface = Color(0xFF08131F);
     final ButtonStyle buttonStyle = TextButton.styleFrom(
       foregroundColor: AppColors.neonCyan,
+      backgroundColor: surface,
       minimumSize: const Size(AppSizes.touchTarget, AppSizes.touchTarget),
       tapTargetSize: MaterialTapTargetSize.padded,
     );
@@ -48,7 +50,7 @@ class GuideHintCard extends StatelessWidget {
       liveRegion: true,
       label: '$label. $title',
       child: Material(
-        color: const Color(0xFF08131F),
+        color: surface,
         elevation: 6,
         shadowColor: AppColors.neonCyan.withValues(alpha: .25),
         borderRadius: radius,

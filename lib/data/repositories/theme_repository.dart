@@ -15,6 +15,7 @@ class ThemeRepository implements IThemeRepository {
   static const List<AppThemeEntity> _themes = <AppThemeEntity>[
     AppThemeEntity(id: 'dark', name: 'Dark', isDark: true),
     AppThemeEntity(id: 'light', name: 'Light', isDark: false),
+    AppThemeEntity.matchDevice,
   ];
 
   @override

@@ -324,6 +324,9 @@ class _RecordLibraryScreenState extends ConsumerState<RecordLibraryScreen> {
                       ),
                       trailing: widget.asPlan
                           ? PopupMenuButton<String>(
+                              style: IconButton.styleFrom(
+                                minimumSize: const Size.square(48),
+                              ),
                               iconColor: Colors.white70,
                               tooltip: es ? 'Más opciones' : 'More options',
                               enabled: enabled,

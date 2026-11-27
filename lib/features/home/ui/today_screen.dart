@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_notice.dart';
 import 'package:fantastic_guacamole/features/permissions/task_reminder_permission.dart';
 import 'package:fantastic_guacamole/features/tasks/widgets/task_edit_dialog.dart';
+import 'package:fantastic_guacamole/l10n/insights_copy.dart';
 import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
@@ -128,9 +129,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                 'Quick questions · free, answered on this device',
                 'Preguntas rápidas · gratis, respondidas en este dispositivo',
               ),
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+              style: const TextStyle(color: Colors.white70),
             ),
             const SizedBox(height: 8),
             OneTapQuestionRow(
@@ -320,18 +319,8 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
               child: ListTile(
                 key: const Key('today-insights'),
                 leading: const Icon(Icons.insights_outlined),
-                title: Text(
-                  _t(
-                    'Patterns & future outcomes',
-                    'Patrones y resultados futuros',
-                  ),
-                ),
-                subtitle: Text(
-                  _t(
-                    'See what’s changing and explore what could happen next.',
-                    'Ve qué cambia y explora lo que podría pasar después.',
-                  ),
-                ),
+                title: Text(InsightsCopy.of(context).todayCardTitle),
+                subtitle: Text(InsightsCopy.of(context).todayCardSubtitle),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () =>
                     goToAppView(context, ref, AppView.trajectoryEngine),

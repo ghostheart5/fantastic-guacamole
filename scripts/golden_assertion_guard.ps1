@@ -37,6 +37,26 @@ $contracts = @(
             'settings_learning_ledger.png'
         )
     }
+    [ordered]@{
+        Test = 'test/features/trajectory_engine/future_outcomes_golden_test.dart'
+        GoldenDirectory = 'test/features/trajectory_engine/goldens'
+        Files = @(
+            'future_outcomes_compact_320.png'
+            'future_outcomes_compact_320_lower.png'
+            'future_outcomes_regular_500.png'
+            'future_outcomes_compact_320_es.png'
+            'future_outcomes_compact_320_light.png'
+        )
+    }
+    [ordered]@{
+        Test = 'test/features/progression/patterns_golden_test.dart'
+        GoldenDirectory = 'test/features/progression/goldens'
+        Files = @(
+            'patterns_compact_320.png'
+            'patterns_regular_500.png'
+            'patterns_compact_320_es.png'
+        )
+    }
 )
 
 $platforms = @('windows', 'linux')

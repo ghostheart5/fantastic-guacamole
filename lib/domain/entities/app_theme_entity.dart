@@ -32,6 +32,13 @@ class AppThemeEntity {
   // Domain behavior
   AppThemeEntity toggle() => copyWith(isDark: !isDark);
 
+  static const AppThemeEntity matchDevice = AppThemeEntity(
+    id: 'system',
+    name: 'Match device',
+  );
+
+  bool get followsDevice => id == matchDevice.id;
+
   bool get isLight => !isDark;
 
   void validate() {

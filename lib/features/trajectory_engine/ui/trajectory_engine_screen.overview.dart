@@ -1,1067 +1,878 @@
 part of 'trajectory_engine_screen.dart';
 
-class _TrajectoryOverviewCard extends StatelessWidget {
-  const _TrajectoryOverviewCard({
+/// The two lines under the switch: estimates, not promises, and what changed.
+class _EstimatesLine extends StatelessWidget {
+  const _EstimatesLine();
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    final PlainPalette colors = PlainPalette.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          journeyText(
+            context,
+            'These are estimates, not promises.',
+            'Son estimaciones, no promesas.',
+          ),
+          style: text.bodyLarge?.copyWith(color: colors.primary),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          journeyText(
+            context,
+            'Since this update, the time range changes the estimate and workload uses your free time and task dates.',
+            'Desde esta actualización, el periodo cambia la estimación y la carga de trabajo usa tu tiempo libre y las fechas de las tareas.',
+          ),
+          style: text.bodyMedium?.copyWith(color: colors.secondary),
+        ),
+      ],
+    );
+  }
+}
+
+/// "If you keep going as you are": every figure for the selected range.
+class _KeepGoingSection extends StatelessWidget {
+  const _KeepGoingSection({
     required this.baseline,
     required this.horizonDays,
+    required this.habitLines,
   });
 
   final TrajectoryBaseline baseline;
   final int horizonDays;
+  final TrajectoryHabitLines habitLines;
 
   @override
   Widget build(BuildContext context) {
-    final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
-    final String direction = baseline.pressure >= 80
-        ? (isSpanish ? 'Presión alta' : 'High pressure')
-        : baseline.pressure >= 50
-        ? (isSpanish ? 'Requiere atención' : 'Needs attention')
-        : (isSpanish ? 'Dirección estable' : 'Steady direction');
-    final Color accent = baseline.pressure >= 80
-        ? const Color(0xFFFF6B88)
-        : baseline.pressure >= 50
-        ? const Color(0xFFFFC857)
-        : const Color(0xFF6EE7F9);
-    final String momentumBand = isSpanish
-        ? switch (trajectoryMomentumBand(baseline.momentum)) {
-            'STRONG' => 'FUERTE',
-            'BUILDING' => 'CRECIENDO',
-            'STEADY' => 'ESTABLE',
-            'FADING' => 'DISMINUYENDO',
-            final String value => value,
-          }
-        : trajectoryMomentumBand(baseline.momentum);
-    return _Panel(
-      title: isSpanish ? 'Dirección actual' : 'Current direction',
-      accent: accent,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
+    final int load = baseline.pressureInHorizon;
+    final TrajectoryExpectedCompletions done =
+        baseline.expectedCompletionsInHorizon;
+    final int inRange = baseline.tasksInHorizon;
+    return PlainSection(
+      title: journeyText(
+        context,
+        'If you keep going as you are',
+        'Si sigues como vas',
+      ),
+      description: journeyText(
+        context,
+        'Over the next $horizonDays days.',
+        'En los próximos $horizonDays días.',
+      ),
+      children: <Widget>[
+        PlainCard(
+          key: const Key('future-outcomes-keep-going'),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: .12),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: accent.withValues(alpha: .35)),
-                ),
-                child: Icon(Icons.route_rounded, color: accent),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      direction,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      isSpanish
-                          ? '${baseline.tasks.length} ${baseline.tasks.length == 1 ? 'compromiso activo' : 'compromisos activos'} en tu plan ahora.'
-                          : '${baseline.tasks.length} active commitment${baseline.tasks.length == 1 ? '' : 's'} in your plan right now.',
-                      style: const TextStyle(
-                        color: Color(0xFFD8E2FF),
-                        fontSize: 12,
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: _OverviewMetric(
-                  label: isSpanish ? 'CARGA MODELADA' : 'MODELED LOAD',
-                  value: baseline.pressure >= 80
-                      ? (isSpanish ? 'ALTA' : 'HIGH')
-                      : baseline.pressure >= 50
-                      ? (isSpanish ? 'VIGILAR' : 'WATCH')
-                      : (isSpanish ? 'BAJA' : 'LOW'),
-                  accent: accent,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _OverviewMetric(
-                  label: isSpanish ? 'IMPULSO' : 'MOMENTUM',
-                  value: momentumBand,
-                  accent: const Color(0xFF6EE7F9),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _OverviewMetric(
-                  label: isSpanish ? 'ENERGÍA' : 'ENERGY',
-                  value: baseline.hasObservedEnergy
-                      ? '${baseline.energy}%'
-                      : (isSpanish ? 'SIN REGISTRO' : 'NOT SET'),
-                  accent: const Color(0xFFA78BFA),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _EvidenceOriginBoundary(baseline: baseline),
-        ],
-      ),
-    );
-  }
-}
-
-class _EvidenceOriginBoundary extends StatelessWidget {
-  const _EvidenceOriginBoundary({required this.baseline});
-
-  final TrajectoryBaseline baseline;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
-    final String energy = baseline.hasObservedEnergy
-        ? (isSpanish ? 'registrada' : 'recorded')
-        : isSpanish
-        ? _spanishUnobservedEvidenceState(baseline.energyOrigin)
-        : '${baseline.energyOrigin.name}; not observed';
-    final String availability = baseline.hasObservedAvailability
-        ? (isSpanish ? 'registrada' : 'recorded')
-        : isSpanish
-        ? _spanishUnobservedEvidenceState(baseline.availabilityOrigin)
-        : '${baseline.availabilityOrigin.name}; not observed';
-    return Text(
-      isSpanish
-          ? 'Límite de evidencia: la energía está $energy; la disponibilidad está $availability. Las duraciones de las tareas siguen siendo estimaciones y los efectos de las fechas límite siguen siendo proyecciones.'
-          : 'Evidence boundary: energy is $energy; availability is $availability. Task durations remain estimates and deadline effects remain projections.',
-      style: const TextStyle(
-        color: Color(0xFFB8C7E8),
-        fontSize: 11,
-        height: 1.35,
-      ),
-    );
-  }
-}
-
-String _spanishUnobservedEvidenceState(PredictiveEvidenceOrigin origin) =>
-    switch (origin) {
-      PredictiveEvidenceOrigin.observed => 'registrada',
-      PredictiveEvidenceOrigin.estimated => 'estimada; no observada',
-      PredictiveEvidenceOrigin.inferred => 'inferida; no observada',
-      PredictiveEvidenceOrigin.legacy =>
-        'basada en datos heredados; no observada',
-      PredictiveEvidenceOrigin.unavailable => 'sin datos observados',
-    };
-
-class _ResultAssumptions extends StatelessWidget {
-  const _ResultAssumptions({
-    super.key,
-    required this.assumptions,
-    required this.sharedInformationWarnings,
-  });
-
-  final List<String> assumptions;
-  final List<String> sharedInformationWarnings;
-
-  @override
-  Widget build(BuildContext context) {
-    final List<String> visible =
-        _trajectoryAssumptionTexts(
-              context,
-              assumptions,
-              sharedInformationWarnings,
-            )
-            .map((String value) => value.trim())
-            .where((String value) => value.isNotEmpty)
-            .toList(growable: false);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFC857).withValues(alpha: .08),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: const Color(0xFFFFC857).withValues(alpha: .24),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            journeyText(
-              context,
-              'Exploring this forecast does not change your saved plan.',
-              'Explorar esta previsión no cambia tu plan guardado.',
-            ),
-            style: const TextStyle(
-              color: Color(0xFFD8E2FF),
-              fontSize: 11,
-              height: 1.35,
-            ),
-          ),
-          if (sharedInformationWarnings.any(
-            (String warning) => warning.trim().isNotEmpty,
-          )) ...<Widget>[
-            const SizedBox(height: 6),
-            Text(
-              journeyText(
-                context,
-                'Review the assumptions for limits or missing details in information you shared.',
-                'Revisa los supuestos para conocer los límites o datos que faltan en la información que compartiste.',
-              ),
-              style: const TextStyle(
-                color: Color(0xFFFFC857),
-                fontSize: 11,
-                height: 1.35,
-              ),
-            ),
-          ],
-          Material(
-            type: MaterialType.transparency,
-            child: ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              childrenPadding: const EdgeInsets.only(bottom: 4),
-              iconColor: const Color(0xFFFFC857),
-              collapsedIconColor: const Color(0xFFFFC857),
-              title: Text(
-                journeyText(
+              PlainMetricRow(
+                key: const Key('keep-going-workload'),
+                label: journeyText(context, 'Workload', 'Carga de trabajo'),
+                value: '${_workloadBand(context, load)}, $load%',
+                caption: journeyText(
                   context,
-                  'What this estimate assumes',
-                  'Supuestos de esta estimación',
+                  'Share of your free time the tasks in this range need.',
+                  'Parte de tu tiempo libre que necesitan las tareas de este periodo.',
                 ),
-                style: const TextStyle(
-                  color: Color(0xFFFFC857),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
+                provenance: ProvenanceKind.estimate,
               ),
-              children: <Widget>[
-                if (visible.isEmpty)
-                  Text(
-                    journeyText(
-                      context,
-                      'No additional scenario assumptions were listed. Task durations and future availability remain modeled.',
-                      'No se indicaron supuestos adicionales. Las duraciones y la disponibilidad futura siguen siendo estimaciones.',
-                    ),
-                    style: const TextStyle(
-                      color: Color(0xFFD8E2FF),
-                      fontSize: 11,
-                      height: 1.35,
-                    ),
-                  )
-                else
-                  for (final String assumption in visible)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          '• $assumption',
-                          style: const TextStyle(
-                            color: Color(0xFFD8E2FF),
-                            fontSize: 11,
-                            height: 1.35,
-                          ),
-                        ),
+              PlainMetricRow(
+                key: const Key('keep-going-tasks'),
+                label: journeyText(
+                  context,
+                  'Tasks in this range',
+                  'Tareas en este periodo',
+                ),
+                value: '$inRange',
+                // A count of what is planned, not of anything recorded.
+                provenance: ProvenanceKind.plan,
+              ),
+              PlainMetricRow(
+                key: const Key('keep-going-finish'),
+                label: journeyText(
+                  context,
+                  'Expected to finish',
+                  'Previsto terminar',
+                ),
+                value: journeyText(
+                  context,
+                  'about ${done.mid} of $inRange',
+                  'unas ${done.mid} de $inRange',
+                ),
+                caption: done.low == done.high
+                    ? journeyText(
+                        context,
+                        'At your recent pace.',
+                        'A tu ritmo reciente.',
+                      )
+                    : journeyText(
+                        context,
+                        'Likely ${done.low} to ${done.high}, at your recent pace.',
+                        'Probablemente de ${done.low} a ${done.high}, a tu ritmo reciente.',
                       ),
-                    ),
-              ],
-            ),
+                provenance: ProvenanceKind.estimate,
+              ),
+              const SizedBox(height: 8),
+              _HabitLinesBlock(lines: habitLines, horizonDays: horizonDays),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-List<String> _trajectoryAssumptionTexts(
-  BuildContext context,
-  List<String> assumptions,
-  List<String> sharedInformationWarnings,
-) {
-  final pairedConstraints = <String>{
-    for (final warning in sharedInformationWarnings)
-      if (assumptions.contains(_reportedTrajectoryAssumption(warning)))
-        'Person Context constraint: $warning',
-  };
-  return assumptions
-      .where((value) => !pairedConstraints.contains(value))
-      .map(
-        (value) => _trajectoryAssumptionText(
-          context,
-          value,
-          sharedInformationWarnings,
-        ),
-      )
-      .toList(growable: false);
-}
+/// Habit check-ins over the range, one row per habit, from the habit lines
+/// provider. Shown only: nothing here reaches the comparison.
+class _HabitLinesBlock extends StatelessWidget {
+  const _HabitLinesBlock({required this.lines, required this.horizonDays});
 
-String _reportedTrajectoryAssumption(String warning) =>
-    'User-reported Person Context: $warning It constrains this scenario but is not treated as identity or a guaranteed outcome.';
+  final TrajectoryHabitLines lines;
+  final int horizonDays;
 
-// Only call for warnings matched against the structured baseline list. Task
-// labels remain verbatim; the producer-owned framing is localized separately.
-String _trajectorySharedInformationWarningText(
-  BuildContext context,
-  String warning,
-) {
-  if (Localizations.localeOf(context).languageCode != 'es') return warning;
-  final templates = <(RegExp, String Function(String))>[
-    (
-      RegExp(
-        r'^Current priority matched (.+) and may only break a close ranking tie\.$',
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    final PlainPalette colors = PlainPalette.of(context);
+    Widget note(String message) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Text(
+        message,
+        style: text.bodyMedium?.copyWith(color: colors.secondary),
       ),
-      (labels) =>
-          'La prioridad actual coincide con $labels y solo puede desempatar opciones de valoración similar.',
-    ),
-    (
-      RegExp(r'^Explicit boundary excluded (.+) from this decision\.$'),
-      (labels) => 'El límite explícito excluyó $labels de esta decisión.',
-    ),
-    (
-      RegExp(r'^Fresh capacity limited this decision to ([0-9]+) minutes\.$'),
-      (minutes) =>
-          'La capacidad reciente limitó esta decisión a $minutes minutos.',
-    ),
-    (
-      RegExp(r'^Scheduled commitment protected (.+) during conflict checks\.$'),
-      (labels) =>
-          'El compromiso programado protegió $labels al comprobar conflictos.',
-    ),
-  ];
-  for (final (pattern, render) in templates) {
-    final match = pattern.firstMatch(warning);
-    if (match != null) return render(match.group(1)!);
+    );
+    final bool current = lines.horizonDays == horizonDays;
+    final List<Widget> body = switch (lines.status) {
+      // A line for another range is about to be replaced: wait quietly.
+      TrajectoryHabitLinesStatus.loading => <Widget>[
+        note(
+          journeyText(
+            context,
+            'Checking your habits…',
+            'Revisando tus hábitos…',
+          ),
+        ),
+      ],
+      TrajectoryHabitLinesStatus.unavailable => <Widget>[
+        note(
+          journeyText(
+            context,
+            "Habits aren't available right now.",
+            'Los hábitos no están disponibles ahora.',
+          ),
+        ),
+      ],
+      TrajectoryHabitLinesStatus.ready when !current => <Widget>[
+        note(
+          journeyText(
+            context,
+            'Checking your habits…',
+            'Revisando tus hábitos…',
+          ),
+        ),
+      ],
+      TrajectoryHabitLinesStatus.ready when lines.nodes.isEmpty => <Widget>[
+        note(
+          journeyText(context, 'No active habits.', 'No hay hábitos activos.'),
+        ),
+      ],
+      TrajectoryHabitLinesStatus.ready => <Widget>[
+        for (final TrajectoryHabitNode node in lines.nodes)
+          _HabitLineRow(
+            key: ValueKey<String>('habit-line-${node.habitId}'),
+            node: node,
+          ),
+      ],
+    };
+    return Column(
+      key: const Key('keep-going-habits'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          journeyText(context, 'Habit check-ins', 'Registros de hábitos'),
+          // A heading above its rows: at least as large as their labels.
+          style: text.titleMedium?.copyWith(color: colors.primary),
+        ),
+        ...body,
+      ],
+    );
   }
-  return _trajectoryGeneratedText(context, warning);
 }
 
-String _trajectoryAssumptionText(
-  BuildContext context,
-  String assumption,
-  List<String> sharedInformationWarnings,
-) {
-  for (final String warning in sharedInformationWarnings) {
-    if (assumption == _reportedTrajectoryAssumption(warning)) {
-      return journeyText(
-        context,
-        'Information you shared: ${_trajectorySharedInformationWarningText(context, warning)} It limits this scenario but does not define you or guarantee an outcome.',
-        'Información que compartiste: ${_trajectorySharedInformationWarningText(context, warning)} Limita este escenario, pero no te define ni garantiza un resultado.',
+class _HabitLineRow extends StatelessWidget {
+  const _HabitLineRow({required this.node, super.key});
+
+  final TrajectoryHabitNode node;
+
+  @override
+  Widget build(BuildContext context) {
+    final TrajectoryExpectedCompletions? projected = node.projectedCheckIns;
+    if (node.evidence == TrajectoryHabitEvidence.notEnoughHistory ||
+        projected == null) {
+      return PlainMetricRow(
+        label: node.title,
+        value: journeyText(
+          context,
+          'Needs more history',
+          'Necesita más historial',
+        ),
+        caption: journeyText(
+          context,
+          '${node.closedPeriodsJudged} of ${node.historyNeeded} periods so far.',
+          '${node.closedPeriodsJudged} de ${node.historyNeeded} periodos hasta ahora.',
+        ),
+        provenance: ProvenanceKind.recorded,
       );
     }
-    if (assumption == 'Person Context constraint: $warning') {
-      return journeyText(
+    final int of = node.expectedPeriods;
+    return PlainMetricRow(
+      label: node.title,
+      value: journeyText(
         context,
-        'Information you shared: ${_trajectorySharedInformationWarningText(context, warning)}',
-        'Información que compartiste: ${_trajectorySharedInformationWarningText(context, warning)}',
-      );
-    }
+        'about ${projected.mid} of $of check-ins',
+        'unos ${projected.mid} de $of registros',
+      ),
+      caption: projected.low == projected.high
+          ? journeyText(context, 'This is an estimate.', 'Es una estimación.')
+          : journeyText(
+              context,
+              'Likely ${projected.low} to ${projected.high}. This is an estimate.',
+              'Probablemente de ${projected.low} a ${projected.high}. Es una estimación.',
+            ),
+      provenance: ProvenanceKind.estimate,
+    );
   }
-  return _trajectoryGeneratedText(context, assumption);
 }
 
-class _FutureBranches extends StatelessWidget {
-  const _FutureBranches({
-    required this.outcomes,
-    required this.selectedId,
-    required this.recommendedId,
+/// The options to compare, each a selectable card with plain text only.
+class _OptionsSection extends StatelessWidget {
+  const _OptionsSection({
+    required this.comparison,
+    required this.selected,
     required this.canRecommend,
     required this.onSelected,
   });
 
-  final List<TrajectoryScenarioOutcome> outcomes;
-  final String? selectedId;
-  final String recommendedId;
+  final TrajectoryComparison comparison;
+  final TrajectoryScenarioOutcome? selected;
   final bool canRecommend;
-  final ValueChanged<String> onSelected;
+  final ValueChanged<TrajectoryScenarioOutcome> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
-    final List<TrajectoryScenarioOutcome> visible = outcomes.take(3).toList();
-    TrajectoryScenarioOutcome? selected;
-    for (final TrajectoryScenarioOutcome item in outcomes) {
-      if (item.id == selectedId) {
-        selected = item;
-        break;
+    final List<TrajectoryScenarioOutcome> visible = comparison.outcomes
+        .take(3)
+        .toList();
+    if (selected case final TrajectoryScenarioOutcome chosen) {
+      if (!visible.any((TrajectoryScenarioOutcome o) => o.id == chosen.id)) {
+        visible.add(chosen);
       }
     }
-    if (selected case final TrajectoryScenarioOutcome selectedOutcome) {
-      if (!visible.any(
-        (TrajectoryScenarioOutcome item) => item.id == selectedOutcome.id,
-      )) {
-        visible.add(selectedOutcome);
-      }
-    }
-
-    return TemporalGlassSurface(
-      accent: AppColors.neonViolet,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            journeyText(context, 'Estimated options', 'Opciones estimadas'),
-            style: const TextStyle(
-              color: AppColors.neonViolet,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            journeyText(
-              context,
-              'Select a path to preview its projected consequences.',
-              'Selecciona un camino para revisar sus consecuencias proyectadas.',
-            ),
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              height: 1.35,
-              letterSpacing: 0,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            journeyText(
-              context,
-              'Momentum, pressure and risk are model scores, not chances of success. Wider ranges mean more uncertainty.',
-              'El impulso, la presión y el riesgo son puntuaciones del modelo, no probabilidades de éxito. Los rangos más amplios indican más incertidumbre.',
-            ),
-            style: const TextStyle(color: Colors.white60, fontSize: 12),
-          ),
-          const SizedBox(height: 10),
-          for (int index = 0; index < visible.length; index++) ...<Widget>[
-            _BranchRow(
-              outcome: visible[index],
-              label: canRecommend && visible[index].id == recommendedId
-                  ? (isSpanish ? 'MEJOR AJUSTE' : 'BEST-FIT')
-                  : isSpanish
-                  ? 'CAMINO MODELADO ${index + 1}'
-                  : 'MODELED PATH ${index + 1}',
-              accent: switch (index % 3) {
-                0 => AppColors.neonCyan,
-                1 => AppColors.neonViolet,
-                _ => AppColors.memoryAmber,
-              },
-              selected: visible[index].id == selectedId,
-              // Selection belongs to the intervention, not a baseline revision.
-              onTap: () => onSelected(visible[index].intervention.id),
-            ),
-            if (index != visible.length - 1)
-              Divider(color: Colors.white.withValues(alpha: .09), height: 1),
-          ],
-        ],
+    final Map<String, String> reasons = _equalWorkloadReasons(
+      context,
+      comparison,
+      visible,
+    );
+    return PlainSection(
+      title: journeyText(context, 'Options', 'Opciones'),
+      description: journeyText(
+        context,
+        'Pick one to compare it with keeping going. Workload and pace are model scores, not chances of success; wider ranges are less reliable.',
+        'Elige una para compararla con seguir como vas. La carga y el ritmo son puntuaciones del modelo, no probabilidades de éxito; los rangos más amplios son menos fiables.',
       ),
+      children: <Widget>[
+        for (final TrajectoryScenarioOutcome outcome in visible)
+          _OptionCard(
+            key: ValueKey<String>('option-${outcome.intervention.id}'),
+            outcome: outcome,
+            isRecommended:
+                canRecommend && outcome.id == comparison.recommendedScenarioId,
+            selected: outcome.id == selected?.id,
+            reason: reasons[outcome.id],
+            onTap: () => onSelected(outcome),
+          ),
+      ],
     );
   }
 }
 
-class _BranchRow extends StatelessWidget {
-  const _BranchRow({
+class _OptionCard extends StatelessWidget {
+  const _OptionCard({
     required this.outcome,
-    required this.label,
-    required this.accent,
+    required this.isRecommended,
     required this.selected,
+    required this.reason,
     required this.onTap,
+    super.key,
   });
 
   final TrajectoryScenarioOutcome outcome;
-  final String label;
-  final Color accent;
+  final bool isRecommended;
   final bool selected;
+  final String? reason;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
-    final int momentumLow = (outcome.projectedMomentum - outcome.uncertainty)
-        .clamp(0, 100);
-    final String confidenceLabel = _trajectoryConfidenceLabel(
+    final TextTheme text = Theme.of(context).textTheme;
+    final _Band workload = _Band.of(
+      outcome.projectedPressure,
+      outcome.uncertainty,
+    );
+    final _Band pace = _Band.of(outcome.projectedMomentum, outcome.uncertainty);
+    final String confidence = _trajectoryConfidenceLabel(
       context,
       outcome.confidence.band,
     );
-    final String interventionTitle = _trajectoryGeneratedText(
-      context,
-      outcome.intervention.title,
-    );
-    final int momentumHigh = (outcome.projectedMomentum + outcome.uncertainty)
-        .clamp(0, 100);
-    final int pressureLow = (outcome.projectedPressure - outcome.uncertainty)
-        .clamp(0, 100);
-    final int pressureHigh = (outcome.projectedPressure + outcome.uncertainty)
-        .clamp(0, 100);
-    return Semantics(
-      button: true,
+    return PlainCard(
       selected: selected,
-      label: '$label. $interventionTitle',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 64),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Container(
-                    width: 12,
-                    height: 12,
-                    margin: const EdgeInsets.only(top: 4),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: accent,
-                      border: Border.all(color: Colors.white70),
-                      boxShadow: <BoxShadow>[
-                        BoxShadow(
-                          color: accent.withValues(alpha: selected ? .72 : .32),
-                          blurRadius: selected ? 12 : 6,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          label,
-                          style: TextStyle(
-                            color: accent,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          interventionTitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: selected
-                                ? FontWeight.w800
-                                : FontWeight.w600,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          isSpanish
-                              ? 'Impulso $momentumLow–$momentumHigh/100  ·  Presión $pressureLow–$pressureHigh/100  ·  Evidencia $confidenceLabel'
-                              : 'Momentum $momentumLow–$momentumHigh/100  ·  Pressure $pressureLow–$pressureHigh/100  ·  $confidenceLabel evidence',
-                          style: const TextStyle(
-                            color: Colors.white60,
-                            fontSize: 11,
-                            height: 1.3,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    selected
-                        ? Icons.radio_button_checked_rounded
-                        : Icons.radio_button_unchecked_rounded,
-                    color: accent,
-                    size: 20,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _OverviewMetric extends StatelessWidget {
-  const _OverviewMetric({
-    required this.label,
-    required this.value,
-    required this.accent,
-  });
-
-  final String label;
-  final String value;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-      child: Column(
-        children: <Widget>[
-          Text(
-            label,
-            maxLines: 1,
-            style: const TextStyle(
-              color: Color(0xFF93A4C9),
-              fontSize: 8,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            value,
-            style: TextStyle(
-              color: accent,
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DisclosurePanel extends StatelessWidget {
-  const _DisclosurePanel({
-    super.key,
-    required this.title,
-    required this.subtitle,
-    required this.child,
-  });
-
-  final String title;
-  final String subtitle;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border.symmetric(
-          horizontal: BorderSide(
-            color: AppColors.neonCyan.withValues(alpha: .2),
-          ),
-        ),
-      ),
-      child: ExpansionTile(
-        tilePadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        childrenPadding: const EdgeInsets.fromLTRB(0, 0, 0, 12),
-        iconColor: AppColors.neonCyan,
-        collapsedIconColor: const Color(0xFF93A4C9),
-        title: Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(color: Color(0xFF93A4C9), fontSize: 11),
-        ),
-        children: <Widget>[child],
-      ),
-    );
-  }
-}
-
-class _CustomScenarioComposer extends StatefulWidget {
-  const _CustomScenarioComposer({
-    required this.baseline,
-    required this.horizonDays,
-    required this.onComposed,
-    required this.onClear,
-    required this.onDraftChanged,
-    this.feedback,
-  });
-
-  final Widget? feedback;
-  final TrajectoryBaseline baseline;
-  final int horizonDays;
-  final ValueChanged<TrajectoryCustomScenarioDraft> onComposed;
-  final VoidCallback onClear;
-  final VoidCallback onDraftChanged;
-
-  @override
-  State<_CustomScenarioComposer> createState() =>
-      _CustomScenarioComposerState();
-}
-
-class _CustomScenarioComposerState extends State<_CustomScenarioComposer> {
-  String? _subjectId;
-  TrajectoryCustomAdjustment _adjustment = TrajectoryCustomAdjustment.complete;
-  double _delayDays = 1;
-  bool _draftChanged = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _subjectId = widget.baseline.tasks.firstOrNull?.id;
-  }
-
-  @override
-  void didUpdateWidget(covariant _CustomScenarioComposer oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!widget.baseline.tasks.any(
-      (TrajectoryTaskNode task) => task.id == _subjectId,
-    )) {
-      final nextSubjectId = widget.baseline.tasks.firstOrNull?.id;
-      if (nextSubjectId != _subjectId) {
-        _subjectId = nextSubjectId;
-        _draftChanged = true;
-        widget.onDraftChanged();
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.baseline.tasks.isEmpty) return const SizedBox.shrink();
-    final bool showsDelay = _adjustment == TrajectoryCustomAdjustment.delay;
-    return _Panel(
-      title: journeyText(
-        context,
-        'Compose a what-if path',
-        'Crear un camino hipotético',
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            journeyText(
-              context,
-              'Choose one explicit change. Axiomara will compare its capacity, risk, goal-timing, Schedule, and Activity consequences without changing your real plan.',
-              'Elige un cambio concreto. Axiomara comparará sus consecuencias en capacidad, riesgo, fechas de metas, agenda y actividad sin cambiar tu plan real.',
-            ),
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 12),
-          DropdownRouteKeyboardGuard(
-            child: DropdownButtonFormField<String>(
-              initialValue: _subjectId,
-              decoration: InputDecoration(
-                labelText: journeyText(
-                  context,
-                  'Commitment to change',
-                  'Compromiso que quieres cambiar',
-                ),
-              ),
-              items: widget.baseline.tasks
-                  .map(
-                    (TrajectoryTaskNode task) => DropdownMenuItem<String>(
-                      value: task.id,
-                      child: Text(task.title, overflow: TextOverflow.ellipsis),
-                    ),
-                  )
-                  .toList(growable: false),
-              onChanged: (String? value) {
-                if (value == _subjectId) return;
-                widget.onDraftChanged();
-                setState(() {
-                  _subjectId = value;
-                  _draftChanged = true;
-                });
-              },
-            ),
-          ),
-          const SizedBox(height: 10),
-          SegmentedButton<TrajectoryCustomAdjustment>(
-            segments: <ButtonSegment<TrajectoryCustomAdjustment>>[
-              ButtonSegment<TrajectoryCustomAdjustment>(
-                value: TrajectoryCustomAdjustment.complete,
-                label: Text(journeyText(context, 'Complete', 'Completar')),
-                icon: const Icon(Icons.check_rounded),
-              ),
-              ButtonSegment<TrajectoryCustomAdjustment>(
-                value: TrajectoryCustomAdjustment.delay,
-                label: Text(journeyText(context, 'Delay', 'Aplazar')),
-                icon: const Icon(Icons.schedule_rounded),
-              ),
-              ButtonSegment<TrajectoryCustomAdjustment>(
-                value: TrajectoryCustomAdjustment.reduceScope,
-                label: Text(journeyText(context, 'Remove', 'Quitar')),
-                icon: const Icon(Icons.remove_circle_outline_rounded),
-              ),
-            ],
-            selected: <TrajectoryCustomAdjustment>{_adjustment},
-            showSelectedIcon: false,
-            style: ButtonStyle(
-              foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
-                final colors = Theme.of(context).colorScheme;
-                return states.contains(WidgetState.selected)
-                    ? colors.onPrimary
-                    : colors.onSurface;
-              }),
-              backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
-                final colors = Theme.of(context).colorScheme;
-                return states.contains(WidgetState.selected)
-                    ? colors.primary
-                    : colors.surface;
-              }),
-              minimumSize: const WidgetStatePropertyAll<Size>(
-                Size(0, AppSizes.touchTarget),
-              ),
-              shape: WidgetStatePropertyAll<OutlinedBorder>(
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              textStyle: const WidgetStatePropertyAll<TextStyle>(
-                TextStyle(letterSpacing: 0),
-              ),
-            ),
-            onSelectionChanged: (Set<TrajectoryCustomAdjustment> selected) {
-              if (selected.first == _adjustment) return;
-              widget.onDraftChanged();
-              setState(() {
-                _adjustment = selected.first;
-                _draftChanged = true;
-              });
-            },
-          ),
-          if (showsDelay) ...<Widget>[
-            const SizedBox(height: 10),
-            Text(
-              Localizations.localeOf(context).languageCode == 'es'
-                  ? 'Aplazamiento declarado: ${_delayDays.round()} ${_delayDays.round() == 1 ? 'día' : 'días'}'
-                  : 'Declared delay: ${_delayDays.round()} day${_delayDays.round() == 1 ? '' : 's'}',
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-            Slider(
-              value: _delayDays,
-              min: 1,
-              max: 14,
-              divisions: 13,
-              label: Localizations.localeOf(context).languageCode == 'es'
-                  ? '${_delayDays.round()} días'
-                  : '${_delayDays.round()} days',
-              onChanged: (double value) {
-                if (value == _delayDays) return;
-                widget.onDraftChanged();
-                setState(() {
-                  _delayDays = value;
-                  _draftChanged = true;
-                });
-              },
-            ),
-          ],
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+      onTap: onTap,
+      child: Builder(
+        builder: (BuildContext context) {
+          final PlainPalette colors = PlainPalette.of(context);
+          final TextStyle? small = text.bodyMedium?.copyWith(
+            color: colors.secondary,
+          );
+          // Stretch, so every option card spans the page.
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              FilledButton.icon(
-                onPressed: _subjectId == null
-                    ? null
-                    : () {
-                        setState(() => _draftChanged = false);
-                        widget.onComposed(
-                          TrajectoryCustomScenarioDraft(
-                            subjectId: _subjectId!,
-                            adjustment: _adjustment,
-                            delayDays: _delayDays.round(),
-                          ),
-                        );
-                      },
-                icon: const Icon(Icons.alt_route_rounded),
-                label: Text(
-                  journeyText(
-                    context,
-                    'Compare ${widget.horizonDays}-day path',
-                    'Comparar trayectoria de ${widget.horizonDays} días',
-                  ),
-                ),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(0, AppSizes.touchTarget),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
+              Text(
+                _trajectoryGeneratedText(context, outcome.intervention.title),
+                style: text.titleSmall?.copyWith(color: colors.primary),
               ),
-              TextButton(
-                onPressed: widget.onClear,
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(0, AppSizes.touchTarget),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+              const SizedBox(height: 4),
+              Text(
+                journeyText(
+                  context,
+                  'Workload about ${workload.mid}% (${workload.low}–${workload.high}%)',
+                  'Carga de alrededor del ${workload.mid}% (${workload.low}–${workload.high}%)',
                 ),
-                child: Text(
-                  journeyText(
-                    context,
-                    'Clear my scenario',
-                    'Borrar mi escenario',
-                  ),
-                ),
+                style: small,
               ),
+              Text(
+                journeyText(
+                  context,
+                  'Pace about ${pace.mid} of 100 (${pace.low}–${pace.high})',
+                  'Ritmo de alrededor de ${pace.mid} de 100 (${pace.low}–${pace.high})',
+                ),
+                style: small,
+              ),
+              // The recommendation shares this line, so withholding it (for
+              // example during a refresh) never changes the card's height.
+              Text(
+                isRecommended
+                    ? journeyText(
+                        context,
+                        'Recommended · Confidence: $confidence',
+                        'Recomendada · Confianza: $confidence',
+                      )
+                    : journeyText(
+                        context,
+                        'Confidence: $confidence',
+                        'Confianza: $confidence',
+                      ),
+                style: isRecommended
+                    ? small?.copyWith(
+                        color: colors.primary,
+                        fontWeight: FontWeight.w600,
+                      )
+                    : small,
+              ),
+              if (reason != null) ...<Widget>[
+                const SizedBox(height: 4),
+                Text(reason!, style: small),
+              ],
             ],
-          ),
-          if (!_draftChanged && widget.feedback != null) ...[
-            const SizedBox(height: 10),
-            widget.feedback!,
-          ],
-        ],
+          );
+        },
       ),
     );
   }
 }
 
-class _CalibrationCard extends StatelessWidget {
-  const _CalibrationCard({required this.summary});
+/// A whole-number estimate with its range, clamped to 0..100.
+class _Band {
+  const _Band(this.mid, this.low, this.high);
 
-  final AsyncValue<TrajectoryCalibrationSummary> summary;
+  factory _Band.of(int value, int uncertainty) => _Band(
+    value,
+    (value - uncertainty).clamp(0, 100),
+    (value + uncertainty).clamp(0, 100),
+  );
 
-  @override
-  Widget build(BuildContext context) {
-    final bool isSpanish = Localizations.localeOf(context).languageCode == 'es';
-    final TrajectoryCalibrationSummary? value = summary.asData?.value;
-    final String state = value == null
-        ? (summary.isLoading
-              ? (isSpanish ? 'cargando' : 'loading')
-              : (isSpanish ? 'no disponible' : 'unavailable'))
-        : value.resolvedForecasts == 0
-        ? (isSpanish ? 'provisional' : 'provisional')
-        : (isSpanish ? 'supervisado' : 'monitored');
-    final String detail = value == null
-        ? (isSpanish
-              ? 'Los datos de seguimiento no están disponibles en este momento.'
-              : 'Monitoring evidence is not currently available.')
-        : value.resolvedForecasts == 0
-        ? (isSpanish
-              ? 'Ningún camino supervisado ha alcanzado su horizonte. Las previsiones siguen siendo provisionales.'
-              : 'No tracked path has reached its horizon yet. Forecasts remain provisional.')
-        : isSpanish
-        ? '${value.resolvedForecasts} resueltas y supervisadas • error de impulso ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} puntos • error de presión ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} puntos • cobertura del intervalo ${(value.intervalCoverage * 100).round()}%. Los coeficientes y la incertidumbre no cambian.'
-        : '${value.resolvedForecasts} resolved and monitored • momentum error ${value.momentumMeanAbsoluteError.toStringAsFixed(1)} points • pressure error ${value.pressureMeanAbsoluteError.toStringAsFixed(1)} points • interval coverage ${(value.intervalCoverage * 100).round()}%. Coefficients and uncertainty are unchanged.';
-    return _Panel(
-      title: journeyText(
-        context,
-        'Forecast monitoring',
-        'Seguimiento de previsiones',
-      ),
-      child: Semantics(
-        container: true,
-        label: isSpanish
-            ? 'Seguimiento de previsiones $state. $detail'
-            : 'Forecast monitoring $state. $detail',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              state.toUpperCase(),
-              style: const TextStyle(
-                color: Color(0xFFFFC857),
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              detail,
-              style: const TextStyle(
-                color: Color(0xFFD8E2FF),
-                fontSize: 12,
-                height: 1.35,
-              ),
-            ),
-          ],
+  final int mid;
+  final int low;
+  final int high;
+}
+
+/// When options show the same whole workload percent, the order comes from
+/// the rest of the estimate (pace, risk, goal dates and the unrounded
+/// workload, among others). Says, for each such option, two of those reasons:
+/// the minutes it takes out of the range and its pace change against
+/// keeping going.
+Map<String, String> _equalWorkloadReasons(
+  BuildContext context,
+  TrajectoryComparison comparison,
+  List<TrajectoryScenarioOutcome> visible,
+) {
+  final Map<int, int> shown = <int, int>{};
+  for (final TrajectoryScenarioOutcome outcome in visible) {
+    shown.update(
+      outcome.projectedPressure,
+      (int count) => count + 1,
+      ifAbsent: () => 1,
+    );
+  }
+  final int keepGoingPace =
+      _keepGoingOutcome(comparison)?.projectedMomentum ??
+      comparison.baseline.momentum;
+  return <String, String>{
+    for (final TrajectoryScenarioOutcome outcome in visible)
+      if ((shown[outcome.projectedPressure] ?? 0) > 1)
+        outcome.id: _rankReason(
+          context,
+          // As the engine counted them for the workload.
+          minutes: outcome.reliefMinutes,
+          paceChange: outcome.projectedMomentum - keepGoingPace,
         ),
-      ),
-    );
-  }
+  };
 }
 
-TrajectoryScenarioOutcome? _selected(
+String _rankReason(
+  BuildContext context, {
+  required int minutes,
+  required int paceChange,
+}) {
+  final String freed = minutes > 0
+      ? journeyText(
+          context,
+          'frees about $minutes minutes in this range',
+          'libera unos $minutes minutos en este periodo',
+        )
+      : journeyText(
+          context,
+          'frees no time in this range',
+          'no libera tiempo en este periodo',
+        );
+  final String pace = paceChange == 0
+      ? journeyText(context, 'pace unchanged', 'ritmo sin cambios')
+      : journeyText(
+          context,
+          'pace ${paceChange > 0 ? '+' : ''}$paceChange',
+          'ritmo ${paceChange > 0 ? '+' : ''}$paceChange',
+        );
+  return journeyText(
+    context,
+    'Same shown workload as another option; the order also weighs pace, risk and goal dates. This one $freed; $pace.',
+    'Misma carga mostrada que otra opción; el orden también tiene en cuenta el ritmo, el riesgo y las fechas de las metas. Esta $freed; $pace.',
+  );
+}
+
+/// The "keep going" option of a comparison, if it has one.
+TrajectoryScenarioOutcome? _keepGoingOutcome(TrajectoryComparison comparison) =>
+    comparison.outcomes
+        .where(
+          (TrajectoryScenarioOutcome o) =>
+              o.intervention.type ==
+                  TrajectoryInterventionType.maintainCourse &&
+              !_isCustomOutcome(o),
+        )
+        .firstOrNull;
+
+bool _isCustomOutcome(TrajectoryScenarioOutcome outcome) =>
+    outcome.intervention.id.startsWith('custom-');
+
+/// The chosen option: by its intervention id when that still exists, else by
+/// the same kind of option (for the built-in options).
+class _OptionSelection {
+  const _OptionSelection(
+    this.interventionId,
+    this.type, {
+    this.subjectId,
+    this.isCustom = false,
+  });
+
+  factory _OptionSelection.of(TrajectoryScenarioOutcome outcome) =>
+      _OptionSelection(
+        outcome.intervention.id,
+        outcome.intervention.type,
+        subjectId: outcome.intervention.subjectId,
+        isCustom: _isCustomOutcome(outcome),
+      );
+
+  const _OptionSelection.custom(this.interventionId)
+    : type = null,
+      subjectId = null,
+      isCustom = true;
+
+  final String interventionId;
+  final TrajectoryInterventionType? type;
+
+  /// The task the picked option was about, so a fallback to the same kind of
+  /// option about another task is not called the person's pick.
+  final String? subjectId;
+  final bool isCustom;
+}
+
+TrajectoryScenarioOutcome? _selectedOutcome(
   TrajectoryComparison? comparison,
-  String? selectedId,
+  _OptionSelection? selection,
 ) {
   if (comparison == null || comparison.outcomes.isEmpty) return null;
-  if (selectedId != null) {
+  if (selection != null) {
     for (final TrajectoryScenarioOutcome outcome in comparison.outcomes) {
-      if (outcome.id == selectedId || outcome.intervention.id == selectedId) {
-        return outcome;
+      if (outcome.intervention.id == selection.interventionId) return outcome;
+    }
+    if (!selection.isCustom) {
+      for (final TrajectoryScenarioOutcome outcome in comparison.outcomes) {
+        if (!_isCustomOutcome(outcome) &&
+            outcome.intervention.type == selection.type) {
+          return outcome;
+        }
       }
     }
   }
   return comparison.recommended ?? comparison.outcomes.first;
 }
 
-enum _CustomComparisonState { pending, ready, unavailable }
-
-class _CustomComparisonRequest {
-  const _CustomComparisonRequest({
-    required this.draft,
-    required this.scenarioId,
-    required this.previous,
-    required this.context,
+/// The selected option: its changes against keeping going, goal dates with
+/// their assumption, details, and the Review, Track and Exclude actions.
+class _SelectedOptionSection extends StatelessWidget {
+  const _SelectedOptionSection({
+    required this.baseline,
+    required this.outcome,
+    required this.keepGoing,
+    required this.pickedByPerson,
+    required this.isRecommended,
+    required this.onOpen,
+    required this.onTrack,
+    required this.onCorrect,
   });
-  final TrajectoryCustomScenarioDraft draft;
-  final String scenarioId;
-  final TrajectoryComparison? previous;
-  final (String?, int, int) context;
-}
 
-class _CustomComparisonFeedback extends StatelessWidget {
-  const _CustomComparisonFeedback({
-    super.key,
-    required this.state,
-    this.onView,
-  });
-  final _CustomComparisonState state;
-  final VoidCallback? onView;
+  final TrajectoryBaseline baseline;
+  final TrajectoryScenarioOutcome outcome;
+  final TrajectoryScenarioOutcome? keepGoing;
+
+  /// The person chose this option (not only shown as recommended or first).
+  final bool pickedByPerson;
+  final bool isRecommended;
+  final VoidCallback onOpen;
+  final VoidCallback onTrack;
+  final VoidCallback onCorrect;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    liveRegion: true,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(switch (state) {
-          _CustomComparisonState.pending => journeyText(
-            context,
-            'Updating your comparison…',
-            'Actualizando tu comparación…',
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    final int keepLoad =
+        keepGoing?.projectedPressure ?? baseline.pressureInHorizon;
+    final int keepPace = keepGoing?.projectedMomentum ?? baseline.momentum;
+    final _Band workload = _Band.of(
+      outcome.projectedPressure,
+      outcome.uncertainty,
+    );
+    final _Band pace = _Band.of(outcome.projectedMomentum, outcome.uncertainty);
+    return PlainSection(
+      title: journeyText(context, 'Selected option', 'Opción elegida'),
+      children: <Widget>[
+        PlainCard(
+          key: const Key('future-outcomes-selected'),
+          child: Builder(
+            builder: (BuildContext context) {
+              final PlainPalette colors = PlainPalette.of(context);
+              final TextStyle? secondary = text.bodyMedium?.copyWith(
+                color: colors.secondary,
+              );
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Text(
+                    isRecommended
+                        ? journeyText(
+                            context,
+                            'Recommended adjustment',
+                            'Ajuste recomendado',
+                          )
+                        : _isCustomOutcome(outcome)
+                        ? journeyText(
+                            context,
+                            'Your what-if',
+                            'Tu escenario hipotético',
+                          )
+                        : pickedByPerson
+                        ? journeyText(
+                            context,
+                            'Option you picked',
+                            'Opción que elegiste',
+                          )
+                        : journeyText(
+                            context,
+                            'Option shown',
+                            'Opción mostrada',
+                          ),
+                    style: text.labelLarge?.copyWith(color: colors.secondary),
+                  ),
+                  Text(
+                    _trajectoryGeneratedText(
+                      context,
+                      outcome.intervention.title,
+                    ),
+                    style: text.titleMedium?.copyWith(color: colors.primary),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _trajectoryGeneratedText(
+                      context,
+                      outcome.intervention.description,
+                    ),
+                    style: secondary,
+                  ),
+                  PlainMetricRow(
+                    key: const Key('selected-workload'),
+                    label: journeyText(context, 'Workload', 'Carga de trabajo'),
+                    value: journeyText(
+                      context,
+                      'about ${workload.mid}%',
+                      'alrededor del ${workload.mid}%',
+                    ),
+                    caption: journeyText(
+                      context,
+                      'Range ${workload.low}–${workload.high}%. Keep going: $keepLoad% (${_changeWords(context, outcome.projectedPressure - keepLoad)}).',
+                      'Rango ${workload.low}–${workload.high}%. Si sigues como vas: $keepLoad% (${_changeWords(context, outcome.projectedPressure - keepLoad)}).',
+                    ),
+                    provenance: ProvenanceKind.estimate,
+                  ),
+                  PlainMetricRow(
+                    key: const Key('selected-pace'),
+                    label: journeyText(context, 'Pace', 'Ritmo'),
+                    value: journeyText(
+                      context,
+                      'about ${pace.mid} of 100',
+                      'alrededor de ${pace.mid} de 100',
+                    ),
+                    caption: journeyText(
+                      context,
+                      '${_paceBand(context, outcome.projectedMomentum)}. Range ${pace.low}–${pace.high}. Keep going: $keepPace (${_changeWords(context, outcome.projectedMomentum - keepPace)}).',
+                      '${_paceBand(context, outcome.projectedMomentum)}. Rango ${pace.low}–${pace.high}. Si sigues como vas: $keepPace (${_changeWords(context, outcome.projectedMomentum - keepPace)}).',
+                    ),
+                    provenance: ProvenanceKind.estimate,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _conciseOutcomeSummary(
+                      context: context,
+                      keepLoad: keepLoad,
+                      keepPace: keepPace,
+                      outcome: outcome,
+                    ),
+                    style: secondary,
+                  ),
+                  _GoalDates(baseline: baseline, outcome: outcome),
+                  const SizedBox(height: 8),
+                  _ResultAssumptions(
+                    key: ValueKey<String>(
+                      'trajectory-assumptions-${outcome.id}',
+                    ),
+                    assumptions: outcome.assumptions,
+                    sharedInformationWarnings: baseline.personContextWarnings,
+                  ),
+                  PlainDisclosure(
+                    key: ValueKey<String>('trajectory-details-${outcome.id}'),
+                    title: journeyText(
+                      context,
+                      'Full impact and evidence',
+                      'Impacto completo y datos',
+                    ),
+                    children: <Widget>[
+                      _ScenarioFullDetails(
+                        baseline: baseline,
+                        outcome: outcome,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: onOpen,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(AppSizes.touchTarget),
+                    ),
+                    icon: Icon(switch (outcome.intervention.type) {
+                      TrajectoryInterventionType.applySmartPlanner =>
+                        Icons.auto_awesome_rounded,
+                      TrajectoryInterventionType.maintainCourse =>
+                        Icons.timeline_rounded,
+                      TrajectoryInterventionType.completeTask =>
+                        Icons.check_circle_outline_rounded,
+                      TrajectoryInterventionType.delayTask ||
+                      TrajectoryInterventionType.reduceScope ||
+                      TrajectoryInterventionType.recoverCommitment =>
+                        Icons.edit_outlined,
+                    }),
+                    // Says what opens, so the person knows before tapping.
+                    label: Text(switch (outcome.intervention.type) {
+                      TrajectoryInterventionType.applySmartPlanner =>
+                        journeyText(
+                          context,
+                          'Open Choose a step',
+                          'Abrir Elegir un paso',
+                        ),
+                      TrajectoryInterventionType.maintainCourse => journeyText(
+                        context,
+                        'Review on Schedule',
+                        'Revisar en agenda',
+                      ),
+                      TrajectoryInterventionType.completeTask => journeyText(
+                        context,
+                        'Mark done…',
+                        'Marcar como hecha…',
+                      ),
+                      TrajectoryInterventionType.delayTask ||
+                      TrajectoryInterventionType.reduceScope ||
+                      TrajectoryInterventionType.recoverCommitment =>
+                        journeyText(
+                          context,
+                          'Edit this task',
+                          'Editar esta tarea',
+                        ),
+                    }),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: onTrack,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(AppSizes.touchTarget),
+                    ),
+                    icon: const Icon(Icons.query_stats_rounded),
+                    label: Text(
+                      journeyText(
+                        context,
+                        'Track this option for monitoring',
+                        'Supervisar esta opción',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    key: const Key('trajectory-correct-assumptions'),
+                    onPressed: onCorrect,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(AppSizes.touchTarget),
+                    ),
+                    icon: const Icon(Icons.visibility_off_outlined),
+                    label: Text(
+                      journeyText(
+                        context,
+                        'Exclude this forecast from monitoring',
+                        'Excluir esta previsión del seguimiento',
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
-          _CustomComparisonState.ready => journeyText(
-            context,
-            'Your comparison is ready. Preview only; no changes saved.',
-            'Tu comparación está lista. Solo es una vista previa; no se guardaron cambios.',
-          ),
-          _CustomComparisonState.unavailable => journeyText(
-            context,
-            'This change could not be compared with the current information. Try another task or change.',
-            'No se pudo comparar este cambio con la información actual. Prueba otra tarea u otro cambio.',
-          ),
-        }, style: const TextStyle(color: Colors.white, fontSize: 13)),
-        if (state == _CustomComparisonState.ready && onView != null)
-          TextButton.icon(
-            onPressed: onView,
-            icon: const Icon(Icons.visibility_outlined),
-            label: Text(
-              journeyText(context, 'View comparison', 'Ver comparación'),
-            ),
-          ),
+        ),
       ],
-    ),
-  );
+    );
+  }
+}
+
+String _conciseOutcomeSummary({
+  required BuildContext context,
+  required int keepLoad,
+  required int keepPace,
+  required TrajectoryScenarioOutcome outcome,
+}) {
+  final int days = outcome.intervention.horizon.inDays;
+  final int paceDelta = outcome.projectedMomentum - keepPace;
+  final int loadDelta = outcome.projectedPressure - keepLoad;
+  String change(int delta, String en, String es, {required bool spanish}) {
+    final int size = delta.abs();
+    if (spanish) {
+      return delta == 0
+          ? '$es sin cambios'
+          : '$es ${delta > 0 ? 'subiendo' : 'bajando'} $size punto${size == 1 ? '' : 's'}';
+    }
+    return delta == 0
+        ? '$en unchanged'
+        : '$en ${delta > 0 ? 'up' : 'down'} $size point${size == 1 ? '' : 's'}';
+  }
+
+  if (Localizations.localeOf(context).languageCode == 'es') {
+    return 'Frente a seguir como vas, esta opción estima '
+        '${change(paceDelta, 'pace', 'el ritmo', spanish: true)} y '
+        '${change(loadDelta, 'workload', 'la carga', spanish: true)} en los '
+        'próximos $days días. El periodo cambia la estimación: decide qué '
+        'tareas cuentan y cuánto tiempo libre hay, y cuanto más lejos, menos '
+        'fiable, por eso los rangos son más amplios.';
+  }
+  return 'Compared with keeping going, this option estimates '
+      '${change(paceDelta, 'pace', 'el ritmo', spanish: false)} and '
+      '${change(loadDelta, 'workload', 'la carga', spanish: false)} over the '
+      'next $days days. The range changes the estimate: it sets which tasks '
+      'count and how much free time there is, and further ahead is less '
+      'reliable, so the ranges are wider.';
+}
+
+/// Goal dates of the selected option, each beside its stated assumption, or
+/// why they are held back.
+class _GoalDates extends StatelessWidget {
+  const _GoalDates({required this.baseline, required this.outcome});
+
+  final TrajectoryBaseline baseline;
+  final TrajectoryScenarioOutcome outcome;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    final PlainPalette colors = PlainPalette.of(context);
+    final MaterialLocalizations dates = MaterialLocalizations.of(context);
+    if (outcome.goals.isEmpty) {
+      if (baseline.hasObservedAvailability || baseline.goals.isEmpty) {
+        return const SizedBox.shrink();
+      }
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Text(
+          journeyText(
+            context,
+            'Goal dates and the recommendation are held back until your working hours are set.',
+            'Las fechas de las metas y la recomendación se omiten hasta que configures tu horario de trabajo.',
+          ),
+          style: text.bodyMedium?.copyWith(color: colors.secondary),
+        ),
+      );
+    }
+    return Column(
+      key: const Key('selected-goal-dates'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const SizedBox(height: 8),
+        Text(
+          journeyText(context, 'Goal dates', 'Fechas de las metas'),
+          style: text.titleMedium?.copyWith(color: colors.primary),
+        ),
+        for (final GoalDelayProjection goal in outcome.goals)
+          PlainMetricRow(
+            label: goal.goalTitle,
+            value: journeyText(
+              context,
+              'about ${dates.formatMediumDate(goal.projectedCompletion.toLocal())}',
+              'hacia el ${dates.formatMediumDate(goal.projectedCompletion.toLocal())}',
+            ),
+            caption:
+                '${dates.formatMediumDate(goal.lowerCompletion.toLocal())}–${dates.formatMediumDate(goal.upperCompletion.toLocal())}. ${_trajectoryGeneratedText(context, goal.explanation)}',
+            provenance: ProvenanceKind.estimate,
+          ),
+        Text(
+          _trajectoryGeneratedText(context, trajectoryGoalDateAssumption),
+          key: const Key('selected-goal-date-assumption'),
+          style: text.bodyMedium?.copyWith(color: colors.secondary),
+        ),
+      ],
+    );
+  }
 }
