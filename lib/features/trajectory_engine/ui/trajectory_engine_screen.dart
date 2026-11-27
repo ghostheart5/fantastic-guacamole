@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/ui/navigation/app_view_navigation.dart';
 import 'package:fantastic_guacamole/ui/navigation/open_schedule.dart';
+import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/features/tasks/widgets/task_edit_dialog.dart';
@@ -37,6 +38,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'trajectory_engine_screen.copy.dart';
 part 'trajectory_engine_screen.overview.dart';
+part 'trajectory_engine_screen.schedule.dart';
 part 'trajectory_engine_screen.widgets.dart';
 
 /// Future outcomes: estimates of what could happen next, built on the plain
@@ -61,6 +63,7 @@ class _TrajectoryEngineScreenState
   TrajectoryEngineModel? _lastDisplayModel;
   AsyncValue<TrajectoryCalibrationSummary>? _lastCalibration;
   bool _isRefreshing = false;
+  bool _reviewingSchedule = false;
   (String?, int, int)? _comparisonContext;
 
   bool _reviewRecorded = false;
@@ -162,6 +165,12 @@ class _TrajectoryEngineScreenState
                 model.status == TrajectoryEngineStatus.error ||
                 model.status == TrajectoryEngineStatus.empty);
 
+    final tasks = ref.watch(allTasksProvider).asData?.value;
+    final conflict =
+        tasks == null || !scope.isWritable || !boundary.isStorageReady
+        ? null
+        : _findScheduleConflict(tasks, DateTime.now());
+
     final Widget page = PlainScreen(
       children: <Widget>[
         PlainHeader(
@@ -181,6 +190,13 @@ class _TrajectoryEngineScreenState
         const SizedBox(height: 12),
         const InsightsDestinationSwitch(current: AppView.trajectoryEngine),
         const SizedBox(height: 16),
+        if (conflict != null)
+          _ScheduleConflictCard(
+            conflict: conflict,
+            onReview: refreshing
+                ? null
+                : () => unawaited(_reviewScheduleConflict(conflict)),
+          ),
         const _EstimatesLine(),
         const SizedBox(height: 12),
         _TrajectoryStateNotice(
@@ -853,23 +869,34 @@ class _TrajectoryEngineScreenState
       ),
     );
     if (draft == null || !_sameAccount(generation, namespace)) return;
+    await _saveReviewedTask(task, draft, generation, namespace);
+  }
+
+  Future<void> _saveReviewedTask(
+    TaskEntity task,
+    TaskEditDraft draft,
+    int generation,
+    String? namespace, {
+    bool scheduleOnly = false,
+  }) async {
     try {
       await ref
           .read(taskActionsProvider)
           .updateTaskDetails(
             id: task.id,
             title: draft.title,
-            description: draft.description,
-            clearDescription: draft.description == null,
-            priority: draft.priority,
-            estimatedDuration: draft.estimatedDuration,
-            clearEstimatedDuration: draft.estimatedDuration == null,
+            description: scheduleOnly ? null : draft.description,
+            clearDescription: !scheduleOnly && draft.description == null,
+            priority: scheduleOnly ? null : draft.priority,
+            estimatedDuration: scheduleOnly ? null : draft.estimatedDuration,
+            clearEstimatedDuration:
+                !scheduleOnly && draft.estimatedDuration == null,
             scheduledFor: draft.scheduledFor,
             clearScheduledFor: draft.scheduledFor == null,
-            dueDate: draft.dueDate,
-            clearDueDate: draft.dueDate == null,
-            goalId: draft.goalId,
-            clearGoalId: draft.goalId == null,
+            dueDate: scheduleOnly ? null : draft.dueDate,
+            clearDueDate: !scheduleOnly && draft.dueDate == null,
+            goalId: scheduleOnly ? null : draft.goalId,
+            clearGoalId: !scheduleOnly && draft.goalId == null,
           );
     } catch (_) {
       if (mounted && _sameAccount(generation, namespace)) {
@@ -890,7 +917,7 @@ class _TrajectoryEngineScreenState
       context,
       ref,
       scheduledFor: draft.scheduledFor,
-      dueDate: draft.dueDate,
+      dueDate: scheduleOnly ? task.dueDate : draft.dueDate,
     );
   }
 
