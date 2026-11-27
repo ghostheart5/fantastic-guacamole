@@ -11,7 +11,7 @@ If you wish to permanently delete your account, please follow the instructions b
 How To Request Account Deletion
 To request account deletion:
 
-Send an email to ghostheart131517@gmail.com
+Send an email to signal@myghostheart.com
 Use a subject line such as:
 Account Deletion Request
 Include the email address associated with your Axiomara account.
@@ -87,12 +87,12 @@ Subscription management is controlled by the platform provider.
 Contact
 For account deletion requests or questions regarding data removal:
 
-Email: ghostheart131517@gmail.com
+Email: signal@myghostheart.com
 
 Summary
 If you would like your Axiomara account deleted:
 
-Email ghostheart131517@gmail.com
+Email signal@myghostheart.com
 Use the subject "Account Deletion Request"
 Include the email address associated with your account
 Complete any requested verification steps
