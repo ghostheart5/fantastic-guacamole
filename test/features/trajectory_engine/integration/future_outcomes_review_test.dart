@@ -32,6 +32,53 @@ void main() {
     'review-b',
   );
 
+  testWidgets('an overlap offers a later start and only Save changes it', (
+    WidgetTester tester,
+  ) async {
+    final start = _conflictStart();
+    final first = _scheduledConflictTask('first', start);
+    final second = _scheduledConflictTask(
+      'second',
+      start.add(const Duration(minutes: 15)),
+    );
+    final fixture = await _pump(tester, accountA, tasks: [first, second]);
+    final review = find.text('Review schedule change');
+    await tapFutureOutcomes(tester, review);
+    expect(find.textContaining('This task overlaps first'), findsOneWidget);
+    expect(fixture.actions.log, isEmpty);
+    await tester.tap(find.text('Cancel'));
+    await settleFutureOutcomes(tester);
+    expect(fixture.actions.log, isEmpty);
+
+    await tapFutureOutcomes(tester, review);
+    await tester.tap(find.text('Save'));
+    await settleFutureOutcomes(tester);
+    expect(fixture.actions.log, ['update:second']);
+    expect(fixture.actions.scheduled, [start.add(const Duration(minutes: 30))]);
+  });
+
+  testWidgets('a new overlap while reviewing prevents a stale save', (
+    WidgetTester tester,
+  ) async {
+    final start = _conflictStart();
+    final first = _scheduledConflictTask('first', start);
+    final second = _scheduledConflictTask(
+      'second',
+      start.add(const Duration(minutes: 15)),
+    );
+    final fixture = await _pump(tester, accountA, tasks: [first, second]);
+    await tapFutureOutcomes(tester, find.text('Review schedule change'));
+    fixture.container.read(_tasks.notifier).set([
+      first,
+      second,
+      _scheduledConflictTask('new', start.add(const Duration(minutes: 30))),
+    ]);
+    await tester.tap(find.text('Save'));
+    await settleFutureOutcomes(tester);
+    expect(fixture.actions.log, isEmpty);
+    expect(find.textContaining('Choose a future time'), findsOneWidget);
+  });
+
   testWidgets('delay: the edit dialog for the task, its due-only time moved '
       'by the option\'s delay from the estimate time, and the note', (
     WidgetTester tester,
@@ -804,6 +851,20 @@ class _CountingEngineActions extends TrajectoryEngineActions {
   @override
   void refresh() => calls.add(1);
 }
+
+DateTime _conflictStart() {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day + 1, 10);
+}
+
+Task _scheduledConflictTask(String title, DateTime start) => Task(
+  id: title,
+  title: title,
+  priority: 3,
+  difficulty: 3,
+  energyRequired: 3,
+  scheduledFor: start,
+);
 
 Future<_Fixture> _pump(
   WidgetTester tester,
