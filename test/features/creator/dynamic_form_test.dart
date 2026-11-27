@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/domain/planning/task_phrase.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
@@ -14,6 +15,68 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'task phrases use local calendar days and preserve ambiguous titles',
+    () {
+      final now = DateTime(2026, 12, 31, 23, 59);
+      expect(
+        parseTaskPhrase('Call the dentist tomorrow', now: now, spanish: false),
+        (title: 'Call the dentist', dueDate: DateTime(2027)),
+      );
+      expect(
+        parseTaskPhrase('Llamar al dentista mañana', now: now, spanish: true),
+        (title: 'Llamar al dentista', dueDate: DateTime(2027)),
+      );
+      expect(
+        parseTaskPhrase('Call today', now: now, spanish: false)?.dueDate,
+        DateTime(2026, 12, 31),
+      );
+      for (final title in [
+        'Call Friday or tomorrow',
+        'Call tomorrow or today',
+        'Call next week',
+        'Tomorrow',
+        'Call 11/26 or tomorrow',
+      ]) {
+        expect(parseTaskPhrase(title, now: now, spanish: false), isNull);
+      }
+    },
+  );
+
+  testWidgets('applying a date edits the draft and only submit sends it', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(700, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final submissions = <CreatorFormData>[];
+    await _pumpThemedCreator(
+      tester,
+      appTheme,
+      DynamicForm(onSubmit: (data) async => submissions.add(data)),
+    );
+    final title = find.byType(TextField).first;
+    await tester.enterText(title, 'Call the dentist tomorrow');
+    await tester.pump();
+    expect(submissions, isEmpty);
+    await _tapCreatorControl(tester, find.text('Use date in title'));
+    expect(
+      tester.widget<TextField>(title).controller!.text,
+      'Call the dentist',
+    );
+    expect(submissions, isEmpty);
+    final now = DateTime.now();
+    final due = DateTime(now.year, now.month, now.day + 1);
+    final date = MaterialLocalizations.of(
+      tester.element(title),
+    ).formatMediumDate(due);
+    expect(find.text('Due date (optional): $date'), findsOneWidget);
+    await tester.enterText(title, 'Call the dental office');
+    await _tapCreatorControl(tester, find.text('Save task'));
+    expect(submissions.single.title, 'Call the dental office');
+    expect(submissions.single.dueDate, due);
+    expect(submissions.single.scheduledFor, isNull);
+  });
+
   for (final theme in [appLightTheme, appTheme]) {
     testWidgets(
       '${theme.brightness.name} creator fields and actual dropdown menus retain selected mode and submitted values',
