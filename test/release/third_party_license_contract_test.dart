@@ -153,10 +153,7 @@ void main() {
     'platform component source notices match the resolved package versions',
     () {
       final text = File(platformPath).readAsStringSync();
-      for (final entry in const {
-        'dbus': '0.8.1',
-        'nm': '0.6.0',
-      }.entries) {
+      for (final entry in const {'dbus': '0.8.1', 'nm': '0.6.0'}.entries) {
         expect((packages[entry.key] as YamlMap)['version'], entry.value);
         expect(text, contains('${entry.key} ${entry.value} (MPL 2.0)'));
         expect(
