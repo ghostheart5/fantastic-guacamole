@@ -147,6 +147,7 @@ void main() {
         'One thing at a time.',
         'Add what matters. Take a step when you’re ready.',
         'A place to start',
+        'Quick questions · free, answered on this device',
       ]) {
         final text = tester.renderObject<RenderParagraph>(find.text(label));
         expect(

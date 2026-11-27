@@ -12,6 +12,8 @@ import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guide_overlay.dart';
+import 'package:fantastic_guacamole/theme/app_theme.dart';
+import 'package:fantastic_guacamole/tutorial/guide_hint_card.dart';
 import 'package:fantastic_guacamole/tutorial/guide_hint_layout.dart';
 import 'package:fantastic_guacamole/tutorial/guidance_catalogue.dart';
 import 'package:flutter/material.dart';
@@ -77,6 +79,45 @@ Future<bool?> _storedSeen(String account) async =>
     );
 
 void main() {
+  for (final ThemeData theme in <ThemeData>[appTheme, appLightTheme]) {
+    testWidgets(
+      'guidance actions have readable contrast in ${theme.brightness.name}',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: Scaffold(
+              body: GuideHintCard(
+                label: 'Help with this page',
+                title: 'Review your patterns',
+                body: 'See the tasks and habits you recorded.',
+                dismissLabel: 'Not now',
+                onDismiss: () {},
+                actionLabel: 'Got it',
+                onAction: () {},
+              ),
+            ),
+          ),
+        );
+        for (final TextButton button in tester.widgetList<TextButton>(
+          find.byType(TextButton),
+        )) {
+          final Color foreground = button.style!.foregroundColor!.resolve(
+            <WidgetState>{},
+          )!;
+          final Color background = button.style!.backgroundColor!.resolve(
+            <WidgetState>{},
+          )!;
+          expect(
+            (foreground.computeLuminance() + .05) /
+                (background.computeLuminance() + .05),
+            greaterThanOrEqualTo(4.5),
+          );
+        }
+      },
+    );
+  }
+
   testWidgets('the page under a hint stays usable and is not covered', (
     WidgetTester tester,
   ) async {

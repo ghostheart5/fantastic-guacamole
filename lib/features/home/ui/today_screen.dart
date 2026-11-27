@@ -129,9 +129,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                 'Quick questions · free, answered on this device',
                 'Preguntas rápidas · gratis, respondidas en este dispositivo',
               ),
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+              style: const TextStyle(color: Colors.white70),
             ),
             const SizedBox(height: 8),
             OneTapQuestionRow(
