@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/features/timeline/logic/task_calendar_file.dart';
 import 'package:fantastic_guacamole/features/timeline/logic/timeline_projection.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -23,6 +24,7 @@ import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:fantastic_guacamole/ui/widgets/plain/plain.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fantastic_guacamole/features/timeline/ui/share_task_calendar_file.dart';
 
 part 'timeline_screen.widgets.dart';
 part 'timeline_screen.source_notice.dart';
