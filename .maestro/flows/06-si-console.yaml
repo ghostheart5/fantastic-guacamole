@@ -15,7 +15,7 @@ tags:
 - assertVisible: "^Chat$"
 
 # The screen must expose its current source-aware contract, not only a title.
-- assertVisible: "(?s).*Ask a question about your saved plans. Review the answer before deciding\\..*"
+- assertVisible: '(?s)^Ask about your saved plans.*This mode uses local rules.*does not send questions to AI chat or spend AI credits[.].*'
 - assertVisible: "No saved planning information yet. This tool will explain what it cannot answer. None of your shared details apply to this question."
 
 # A normal typed evidence question must return a structured, on-device Assistant
