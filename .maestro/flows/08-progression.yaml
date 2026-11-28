@@ -19,4 +19,4 @@ tags:
 - assertVisible: 'Review your recorded history: tasks, habits and streaks'
 # The two-part switch moves to the other destination of the Insights tab.
 - tapOn: 'Future outcomes'
-- assertVisible: 'These are estimates, not promises.'
+- assertVisible: '(?s)^These are estimates, not promises[.].*'
