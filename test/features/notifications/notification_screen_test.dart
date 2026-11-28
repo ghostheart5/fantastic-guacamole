@@ -79,6 +79,34 @@ void main() {
     return container;
   }
 
+  testWidgets('scheduled goal uses current native copy and keeps one row', (
+    tester,
+  ) async {
+    const id = 'goal_reminder_renamed';
+    await pumpNotifications(
+      tester,
+      [
+        NotificationEntity(
+          id: id,
+          title: 'Goal due tomorrow',
+          message: 'Old goal name',
+          scheduledAt: DateTime.now().add(const Duration(days: 1)),
+          scheduleResult: NotificationScheduleResult.permissionDenied,
+        ),
+      ],
+      registered: const RegisteredReminders(
+        ids: {id},
+        permissionGranted: true,
+        goalBodies: {id: 'New goal name'},
+      ),
+    );
+
+    expect(find.byKey(const Key(id)), findsOneWidget);
+    expect(find.text('New goal name'), findsOneWidget);
+    expect(find.text('Old goal name'), findsNothing);
+    expect(find.text('Retry reminders'), findsNothing);
+  });
+
   for (final ThemeData theme in <ThemeData>[appTheme, appLightTheme]) {
     testWidgets(
       'scrolls and keeps readable summary at 200% in ${theme.brightness.name}',

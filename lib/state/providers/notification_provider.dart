@@ -113,9 +113,13 @@ class RegisteredReminders {
   const RegisteredReminders({
     required this.ids,
     required this.permissionGranted,
+    this.goalBodies = const <String, String>{},
   });
 
   final Set<String> ids;
+
+  /// Current copy for pending goal reminders, keyed by their logical id.
+  final Map<String, String> goalBodies;
 
   /// Null when not known.
   final bool? permissionGranted;
@@ -141,6 +145,11 @@ final registeredRemindersProvider =
       );
       return RegisteredReminders(
         ids: <String>{for (final item in pending) item.id},
+        goalBodies: <String, String>{
+          for (final item in pending)
+            if (item.id.startsWith('goal_reminder_') && item.body.isNotEmpty)
+              item.id: item.body,
+        },
         permissionGranted: scheduler.permissionStatusListenable.value,
       );
     });

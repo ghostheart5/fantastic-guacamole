@@ -239,7 +239,12 @@ class _NotificationTile extends StatelessWidget {
     );
     final bool newActivity = isNewNotificationActivity(item, now);
     final String title = _localizedTitle(item.title, es);
-    final String message = _localizedMessage(item.message, es);
+    // Retry reconciles the native registration even when the stored list
+    // entry still contains older copy. History keeps its original text.
+    final String? pendingBody = status == NotificationListStatus.scheduled
+        ? registered?.goalBodies[item.id]
+        : null;
+    final String message = _localizedMessage(pendingBody ?? item.message, es);
     final Color accent = !item.isEnabled
         ? AppColors.memoryAmber
         : !newActivity
