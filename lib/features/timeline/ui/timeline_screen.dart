@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:fantastic_guacamole/l10n/journey_copy.dart';
 import 'package:intl/intl.dart';
 import 'package:fantastic_guacamole/features/permissions/task_reminder_permission.dart';
@@ -27,7 +24,7 @@ import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:fantastic_guacamole/ui/widgets/plain/plain.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:fantastic_guacamole/features/timeline/ui/share_task_calendar_file.dart';
 
 part 'timeline_screen.widgets.dart';
 part 'timeline_screen.source_notice.dart';
