@@ -268,7 +268,8 @@ def signing_environment(tooling, runner_temp):
             "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m "
             "-XX:ReservedCodeCacheSize=256m -XX:-HeapDumpOnOutOfMemoryError\n"
             "org.gradle.workers.max=1\norg.gradle.parallel=false\n"
-            "org.gradle.daemon=false\norg.gradle.configuration-cache=false\n",
+            "org.gradle.daemon=false\norg.gradle.configuration-cache=false\n"
+            "org.gradle.logging.stacktrace=all\n",
             encoding="ascii")
         env = os.environ.copy()
         env["GRADLE_USER_HOME"] = str(home)

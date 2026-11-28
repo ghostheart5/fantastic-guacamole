@@ -12,6 +12,30 @@ _CLASS = _PREFIX + r"[A-Za-z0-9_.$]{1,180}"
 _CAUSE = re.compile(r"^(?:Caused by: |Suppressed: )?(" + _CLASS + r")(?::|\s*$)")
 _FRAME = re.compile(r"^\s*at (" + _CLASS + r")\((?:[A-Za-z0-9_$]{1,100}\.(?:java|kt|groovy):([0-9]{1,7})|Native Method|Unknown Source)\)\s*$")
 
+_RELEASE_TASK = (
+    r":app:(?:compileFlutterBuildRelease|compileReleaseKotlin|mergeReleaseNativeLibs|"
+    r"extractReleaseNativeSymbolTables|mergeReleaseNativeDebugMetadata|minifyReleaseWithR8|"
+    r"packageReleaseBundle|signReleaseBundle|bundleRelease)"
+)
+_FAILED_TASK = re.compile(
+    r"(?:Execution failed for task '(" + _RELEASE_TASK + r")'\.|> Task (" +
+    _RELEASE_TASK + r") FAILED)"
+)
+_MEMORY_ERROR = re.compile(
+    r'^(?:(?:Caused by|Suppressed): |Exception in thread "[^"]{1,120}" )?'
+    r'(?:java\.lang\.)?OutOfMemoryError:\s*(.+)$'
+)
+_MEMORY_REASONS = {
+    "Java heap space": "java-heap",
+    "GC overhead limit exceeded": "gc-overhead",
+    "Metaspace": "metaspace",
+    "Compressed class space": "compressed-class-space",
+    "unable to create native thread": "native-thread",
+    "Direct buffer memory": "direct-buffer",
+    "Requested array size exceeds VM limit": "array-size-limit",
+}
+
+
 
 class FailureDiagnostics:
     def __init__(self, environment):
@@ -53,12 +77,20 @@ class FailureDiagnostics:
         # bearer values, source defines or aliases and are deliberately omitted.
         cause = _CAUSE.match(text)
         frame = _FRAME.fullmatch(text)
-        if cause:
+        memory = _MEMORY_ERROR.fullmatch(text.strip())
+        task = _FAILED_TASK.fullmatch(text.strip())
+        if memory:
+            detail = memory[1]
+            reason = next((label for prefix, label in _MEMORY_REASONS.items()
+                           if detail == prefix or detail.startswith(prefix + ":")),
+                          "unclassified")
+            line = "memory-error: " + reason
+        elif cause:
             line = "exception-class: " + cause[1]
         elif frame:
             line = "stack-frame: " + frame[1] + (":" + frame[2] if frame[2] else "")
-        elif text == "Execution failed for task ':app:signReleaseBundle'.":
-            line = "failed-task: :app:signReleaseBundle"
+        elif task:
+            line = "failed-task: " + (task[1] or task[2])
         else:
             return
         size = len((line + "\n").encode("utf-8"))

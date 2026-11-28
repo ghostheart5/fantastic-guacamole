@@ -587,6 +587,24 @@ class DiagnosticFilterTests(unittest.TestCase):
                b"Execution failed for task ':app:signReleaseBundle'.\r\n")
         self.assertEqual(d.finish(), ("failed-task: :app:signReleaseBundle",))
 
+    def test_release_memory_diagnostics_emit_only_allowlisted_labels(self):
+        diagnostics = FailureDiagnostics({"ANDROID_KEY_PASSWORD": "synthetic-secret"})
+        diagnostics.feed(
+            b"> Task :app:minifyReleaseWithR8 FAILED\n"
+            b"Execution failed for task ':app:packageReleaseBundle'.\n"
+            b"Execution failed for task ':app:synthetic-secret'.\n"
+            b"Caused by: java.lang.OutOfMemoryError: Java heap space: synthetic-secret\n"
+            b'Exception in thread "worker" java.lang.OutOfMemoryError: Metaspace\n'
+            b"java.lang.OutOfMemoryError: synthetic-secret\n"
+        )
+        self.assertEqual(diagnostics.finish(), (
+            "failed-task: :app:minifyReleaseWithR8",
+            "failed-task: :app:packageReleaseBundle",
+            "memory-error: java-heap",
+            "memory-error: metaspace",
+            "memory-error: unclassified",
+        ))
+
     def test_package_and_script_import_paths_remain_available(self):
         result = subprocess.run([sys.executable, "-B", "-c",
             "from scripts.android_candidate_build import validate_internal_policy"],
